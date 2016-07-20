@@ -8,11 +8,11 @@ using namespace v8;
 bool islog;//log?
 
 void CreateTrader(const FunctionCallbackInfo<Value>& args) {
-    args.GetReturnValue().Set(WrapTrader::NewInstance(args));
+    WrapTrader::NewInstance(args);
 }
 
 void CreateMdUser(const FunctionCallbackInfo<Value>& args) {
-    args.GetReturnValue().Set(WrapMdUser::NewInstance(args));
+    WrapMdUser::NewInstance(args);
 }
 
 void Settings(const FunctionCallbackInfo<Value>& args) {
