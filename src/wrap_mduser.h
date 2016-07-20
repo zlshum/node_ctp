@@ -33,7 +33,7 @@ public:
     static void  SubscribeMarketData(const FunctionCallbackInfo<Value>& args);
     static void  UnSubscribeMarketData(const FunctionCallbackInfo<Value>& args);
     static void Disposed(const FunctionCallbackInfo<Value>& args);
-    static void Init(int args);
+    static void Init(Isolate*,int args);
     static void NewInstance(const FunctionCallbackInfo<Value>& args);
 
 private:
@@ -49,6 +49,7 @@ private:
 
     uv_mduser* uvMdUser;
     static int s_uuid;
+    static Isolate* isolate;
     static void FunCallback(CbRtnField *data);
     static void FunRtnCallback(int result, void* baton);
     static Persistent<Function> constructor;

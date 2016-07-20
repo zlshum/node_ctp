@@ -31,8 +31,8 @@ void Settings(const FunctionCallbackInfo<Value>& args) {
 void Init(Handle<Object> exports,
           Local<Value> module,
           void* priv) {
-    WrapTrader::Init(0);
-    WrapMdUser::Init(0);
+    WrapTrader::Init(exports->GetIsolate(),0);
+    WrapMdUser::Init(exports->GetIsolate(),0);
 
     NODE_SET_METHOD(exports,"createTrader",CreateTrader);
     NODE_SET_METHOD(exports,"createMdUser",CreateMdUser);

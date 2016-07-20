@@ -58,7 +58,7 @@ public:
     ///删除接口对象
     static void Disposed(const FunctionCallbackInfo<Value>& args);
     //对象初始化
-    static void Init(int args);
+    static void Init(Isolate*,int args);
     static void NewInstance(const FunctionCallbackInfo<Value>& args);
     static void GetTradingDay(const FunctionCallbackInfo<Value>& args);
 
@@ -89,6 +89,7 @@ private:
     static int s_uuid;
     static void FunCallback(CbRtnField *data);
     static void FunRtnCallback(int result, void* baton);
+    static Isolate* isolate;
     static Persistent<Function> constructor;
     static std::map<const char*, int,ptrCmp> event_map;
     static std::map<int, Persistent<Function> > callback_map;

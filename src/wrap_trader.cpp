@@ -7,6 +7,8 @@ std::map<const char*, int,ptrCmp> WrapTrader::event_map;
 std::map<int, Persistent<Function> > WrapTrader::callback_map;
 std::map<int, Persistent<Function> > WrapTrader::fun_rtncb_map;
 
+Isolate* WrapTrader::isolate = NULL;
+
 WrapTrader::WrapTrader() {    
     logger_cout("wrap_trader------>object start init");
     uvTrader = new uv_trader();    
@@ -20,7 +22,9 @@ WrapTrader::~WrapTrader(void) {
     logger_cout("wrap_trader------>object destroyed");
 }
 
-void WrapTrader::Init(int args) {
+void WrapTrader::Init(Isolate* iso,int args) {
+    isolate = iso;
+
     // Prepare constructor template
     Local<FunctionTemplate> tpl = FunctionTemplate::New(isolate,New);
     tpl->SetClassName(String::NewFromUtf8(isolate,"WrapTrader"));
@@ -74,7 +78,7 @@ void WrapTrader::Init(int args) {
     tpl->PrototypeTemplate()->Set(String::NewFromUtf8(isolate,"getTradingDay"),
     FunctionTemplate::New(isolate,GetTradingDay)->GetFunction());
 
-    constructor = Persistent<Function>::New(tpl->GetFunction());
+    constructor.Reset(isolate,tpl->GetFunction());
 }
 
 void WrapTrader::initEventMap() {
@@ -111,17 +115,19 @@ void WrapTrader::New(const FunctionCallbackInfo<Value>& args) {
 
 void WrapTrader::NewInstance(const FunctionCallbackInfo<Value>& args) {
     const unsigned argc = 1;
-    void argv[argc] = { args[0] };
-    Local<Object> instance = constructor->NewInstance(argc, argv);
+    Local<Value> argv[argc] = { args[0] };
+    Local<Function> cons = Local<Function>::New(isolate, constructor);
+    Local<Context> context = isolate->GetCurrentContext();
+    Local<Object> instance = cons->NewInstance(context,argc, argv).ToLocalChecked();
     args.GetReturnValue().Set(instance);
 }
 
 void WrapTrader::On(const FunctionCallbackInfo<Value>& args) {
     Isolate* isolate = args.GetIsolate();
 
-    if (args[0]->IsUndefined(isolate) || args[1]->IsUndefined(isolate)) {
+    if (args[0]->IsUndefined() || args[1]->IsUndefined()) {
         logger_cout("Wrong FunctionCallbackInfo<Value>->event name or function");
-        ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->event name or function")));
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->event name or function")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
@@ -136,7 +142,7 @@ void WrapTrader::On(const FunctionCallbackInfo<Value>& args) {
     std::map<const char*, int>::iterator eIt = event_map.find(*eNameAscii);
     if (eIt == event_map.end()) {
         logger_cout("System has not register this event");
-        ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"System has no register this event")));
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"System has no register this event")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
@@ -144,34 +150,34 @@ void WrapTrader::On(const FunctionCallbackInfo<Value>& args) {
     std::map<int, Persistent<Function> >::iterator cIt = callback_map.find(eIt->second);
     if (cIt != callback_map.end()) {
         logger_cout("Callback is defined before");
-        ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Callback is defined before")));
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Callback is defined before")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
 
     callback_map[eIt->second] = unRecoveryCb;    
     obj->uvTrader->On(*eNameAscii,eIt->second, FunCallback);
-    args.GetReturnValue().Set(Int32::New(isolate,0));
+    args.GetReturnValue().Set(Int32::New(isolate,isolate,0));
     return;
 }
 
 void WrapTrader::Connect(const FunctionCallbackInfo<Value>& args) {
     std::string log = "wrap_trader Connect------>";
-    if (args[0]->IsUndefined(isolate)) {
+    if (args[0]->IsUndefined()) {
         logger_cout("Wrong FunctionCallbackInfo<Value>->front addr");
-        ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->front addr")));
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->front addr")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
     if (!args[2]->IsNumber() || !args[3]->IsNumber()) {
         logger_cout("Wrong FunctionCallbackInfo<Value>->public or private topic type");
-        ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->public or private topic type")));
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->public or private topic type")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }  
     int uuid = -1;
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
-    if (!args[4]->IsUndefined(isolate) && args[4]->IsFunction()) {
+    if (!args[4]->IsUndefined() && args[4]->IsFunction()) {
         uuid = ++s_uuid;
         fun_rtncb_map[uuid] = Persistent<Function>::New(Local<Function>::Cast(args[4]));
         std::string _head = std::string(log);
@@ -179,7 +185,7 @@ void WrapTrader::Connect(const FunctionCallbackInfo<Value>& args) {
     }
 
     Local<String> frontAddr = args[0]->ToString();
-    Local<String> szPath = args[1]->IsUndefined(isolate) ? String::NewFromUtf8(isolate,"t") : args[0]->ToString();
+    Local<String> szPath = args[1]->IsUndefined() ? String::NewFromUtf8(isolate,"t") : args[0]->ToString();
     String::AsciiValue addrAscii(frontAddr);
     String::AsciiValue pathAscii(szPath);
     int publicTopicType = args[2]->Int32Value();
@@ -200,17 +206,17 @@ void WrapTrader::Connect(const FunctionCallbackInfo<Value>& args) {
 void WrapTrader::ReqUserLogin(const FunctionCallbackInfo<Value>& args) {
     Isolate* isolate = args.GetIsolate();
     std::string log = "wrap_trader ReqUserLogin------>";
-    if (args[0]->IsUndefined(isolate) || args[1]->IsUndefined(isolate) || args[2]->IsUndefined(isolate)) {
+    if (args[0]->IsUndefined() || args[1]->IsUndefined() || args[2]->IsUndefined()) {
         std::string _head = std::string(log);
         logger_cout(_head.append(" Wrong FunctionCallbackInfo<Value>").c_str());
-        ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>")));
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
 
     int uuid = -1;
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
-    if (!args[3]->IsUndefined(isolate) && args[3]->IsFunction()) {
+    if (!args[3]->IsUndefined() && args[3]->IsFunction()) {
         uuid = ++s_uuid;
         fun_rtncb_map[uuid] = Persistent<Function>::New(Local<Function>::Cast(args[3]));
         std::string _head = std::string(log);
@@ -239,16 +245,16 @@ void WrapTrader::ReqUserLogout(const FunctionCallbackInfo<Value>& args) {
     Isolate* isolate = args.GetIsolate();
     std::string log = "wrap_trader ReqUserLogout------>";
 
-    if (args[0]->IsUndefined(isolate) || args[1]->IsUndefined(isolate)) {
+    if (args[0]->IsUndefined() || args[1]->IsUndefined()) {
         std::string _head = std::string(log);
         logger_cout(_head.append(" Wrong FunctionCallbackInfo<Value>").c_str());
-        ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>")));
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
     int uuid = -1;
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
-    if (!args[2]->IsUndefined(isolate) && args[2]->IsFunction()) {
+    if (!args[2]->IsUndefined() && args[2]->IsFunction()) {
         uuid = ++s_uuid;
         fun_rtncb_map[uuid] = Persistent<Function>::New(Local<Function>::Cast(args[2]));
         std::string _head = std::string(log);
@@ -274,16 +280,16 @@ void WrapTrader::ReqSettlementInfoConfirm(const FunctionCallbackInfo<Value>& arg
     Isolate* isolate = args.GetIsolate();
     std::string log = "wrap_trader ReqSettlementInfoConfirm------>";
 
-    if (args[0]->IsUndefined(isolate) || args[1]->IsUndefined(isolate)) {
+    if (args[0]->IsUndefined() || args[1]->IsUndefined()) {
         std::string _head = std::string(log);
         logger_cout(_head.append(" Wrong FunctionCallbackInfo<Value>").c_str());
-        ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>")));
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
     int uuid = -1;    
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
-    if (!args[2]->IsUndefined(isolate) && args[2]->IsFunction()) {
+    if (!args[2]->IsUndefined() && args[2]->IsFunction()) {
         uuid = ++s_uuid;
         fun_rtncb_map[uuid] = Persistent<Function>::New(Local<Function>::Cast(args[2]));
         std::string _head = std::string(log);
@@ -309,16 +315,16 @@ void WrapTrader::ReqQryInstrument(const FunctionCallbackInfo<Value>& args) {
     Isolate* isolate = args.GetIsolate();
     std::string log = "wrap_trader ReqQryInstrument------>";
 
-    if (args[0]->IsUndefined(isolate)) {
+    if (args[0]->IsUndefined()) {
         std::string _head = std::string(log);
         logger_cout(_head.append(" Wrong FunctionCallbackInfo<Value>").c_str());
-        ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>")));
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
     int uuid = -1;
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
-    if (!args[1]->IsUndefined(isolate) && args[1]->IsFunction()) {
+    if (!args[1]->IsUndefined() && args[1]->IsFunction()) {
         uuid = ++s_uuid;
         fun_rtncb_map[uuid] = Persistent<Function>::New(Local<Function>::Cast(args[1]));
         std::string _head = std::string(log);
@@ -341,16 +347,16 @@ void WrapTrader::ReqQryTradingAccount(const FunctionCallbackInfo<Value>& args) {
     Isolate* isolate = args.GetIsolate();
     std::string log = "wrap_trader ReqQryTradingAccount------>";
 
-    if (args[0]->IsUndefined(isolate) || args[1]->IsUndefined(isolate)) {
+    if (args[0]->IsUndefined() || args[1]->IsUndefined()) {
         std::string _head = std::string(log);
         logger_cout(_head.append(" Wrong FunctionCallbackInfo<Value>").c_str());
-        ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>")));
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
     int uuid = -1;
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
-    if (!args[2]->IsUndefined(isolate) && args[2]->IsFunction()) {
+    if (!args[2]->IsUndefined() && args[2]->IsFunction()) {
         uuid = ++s_uuid;
         fun_rtncb_map[uuid] = Persistent<Function>::New(Local<Function>::Cast(args[2]));
         std::string _head = std::string(log);
@@ -375,16 +381,16 @@ void WrapTrader::ReqQryInvestorPosition(const FunctionCallbackInfo<Value>& args)
     Isolate* isolate = args.GetIsolate();
     std::string log = "wrap_trader ReqQryInvestorPosition------>";
 
-    if (args[0]->IsUndefined(isolate) || args[1]->IsUndefined(isolate) || args[2]->IsUndefined(isolate)) {
+    if (args[0]->IsUndefined() || args[1]->IsUndefined() || args[2]->IsUndefined()) {
         std::string _head = std::string(log);
         logger_cout(_head.append(" Wrong FunctionCallbackInfo<Value>").c_str());
-        ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>")));
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
     int uuid = -1;
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
-    if (!args[3]->IsUndefined(isolate) && args[3]->IsFunction()) {
+    if (!args[3]->IsUndefined() && args[3]->IsFunction()) {
     uuid = ++s_uuid;
     fun_rtncb_map[uuid] = Persistent<Function>::New(Local<Function>::Cast(args[3]));
     std::string _head = std::string(log);
@@ -413,16 +419,16 @@ void WrapTrader::ReqQryInvestorPositionDetail(const FunctionCallbackInfo<Value>&
     Isolate* isolate = args.GetIsolate();
     std::string log = "wrap_trader ReqQryInvestorPositionDetail------>";
 
-    if (args[0]->IsUndefined(isolate) || args[1]->IsUndefined(isolate) || args[2]->IsUndefined(isolate)) {
+    if (args[0]->IsUndefined() || args[1]->IsUndefined() || args[2]->IsUndefined()) {
         std::string _head = std::string(log);
         logger_cout(_head.append(" Wrong FunctionCallbackInfo<Value>").c_str());
-        ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>")));
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
     int uuid = -1;
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
-    if (!args[3]->IsUndefined(isolate) && args[3]->IsFunction()) {
+    if (!args[3]->IsUndefined() && args[3]->IsFunction()) {
         uuid = ++s_uuid;
         fun_rtncb_map[uuid] = Persistent<Function>::New(Local<Function>::Cast(args[3]));
         std::string _head = std::string(log);
@@ -451,16 +457,16 @@ void WrapTrader::ReqOrderInsert(const FunctionCallbackInfo<Value>& args) {
     Isolate* isolate = args.GetIsolate();
     std::string log = "wrap_trader ReqOrderInsert------>";
 
-    if (args[0]->IsUndefined(isolate) || !args[0]->IsObject()) {
+    if (args[0]->IsUndefined() || !args[0]->IsObject()) {
         std::string _head = std::string(log);
         logger_cout(_head.append(" Wrong FunctionCallbackInfo<Value>").c_str());
-        ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>")));
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
     int uuid = -1;
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
-    if (!args[1]->IsUndefined(isolate) && args[1]->IsFunction()) {
+    if (!args[1]->IsUndefined() && args[1]->IsFunction()) {
         uuid = ++s_uuid;
         fun_rtncb_map[uuid] = Persistent<Function>::New(Local<Function>::Cast(args[1]));
         std::string _head = std::string(log);
@@ -468,106 +474,106 @@ void WrapTrader::ReqOrderInsert(const FunctionCallbackInfo<Value>& args) {
     }
     Local<Object> jsonObj = args[0]->ToObject();
     Local<Value> brokerId = jsonObj->Get(v8::String::NewFromUtf8(isolate,"brokerId"));
-    if (brokerId->IsUndefined(isolate)) {
-        ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->brokerId")));
+    if (brokerId->IsUndefined()) {
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->brokerId")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
     String::AsciiValue brokerId_(brokerId->ToString());
     Local<Value> investorId = jsonObj->Get(v8::String::NewFromUtf8(isolate,"investorId"));
-    if (investorId->IsUndefined(isolate)) {
-        ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->investorId")));
+    if (investorId->IsUndefined()) {
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->investorId")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
     String::AsciiValue investorId_(investorId->ToString());
     Local<Value> instrumentId = jsonObj->Get(v8::String::NewFromUtf8(isolate,"instrumentId"));
-    if (instrumentId->IsUndefined(isolate)) {
-        ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->instrumentId")));
+    if (instrumentId->IsUndefined()) {
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->instrumentId")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
     String::AsciiValue instrumentId_(instrumentId->ToString());
     Local<Value> priceType = jsonObj->Get(v8::String::NewFromUtf8(isolate,"priceType"));
-    if (priceType->IsUndefined(isolate)) {
-        ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->priceType")));
+    if (priceType->IsUndefined()) {
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->priceType")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
     String::AsciiValue priceType_(priceType->ToString());
     Local<Value> direction = jsonObj->Get(v8::String::NewFromUtf8(isolate,"direction"));
-    if (direction->IsUndefined(isolate)) {
-        ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->direction")));
+    if (direction->IsUndefined()) {
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->direction")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
     String::AsciiValue direction_(direction->ToString());
     Local<Value> combOffsetFlag = jsonObj->Get(v8::String::NewFromUtf8(isolate,"combOffsetFlag"));
-    if (combOffsetFlag->IsUndefined(isolate)) {
-        ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->combOffsetFlag")));
+    if (combOffsetFlag->IsUndefined()) {
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->combOffsetFlag")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
     String::AsciiValue combOffsetFlag_(combOffsetFlag->ToString());
     Local<Value> combHedgeFlag = jsonObj->Get(v8::String::NewFromUtf8(isolate,"combHedgeFlag"));
-    if (combHedgeFlag->IsUndefined(isolate)) {
-        ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->combHedgeFlag")));
+    if (combHedgeFlag->IsUndefined()) {
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->combHedgeFlag")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
     String::AsciiValue combHedgeFlag_(combHedgeFlag->ToString());
     Local<Value> vlimitPrice = jsonObj->Get(v8::String::NewFromUtf8(isolate,"limitPrice"));
-    if (vlimitPrice->IsUndefined(isolate)) {
-        ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->limitPrice")));
+    if (vlimitPrice->IsUndefined()) {
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->limitPrice")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
     double limitPrice = vlimitPrice->NumberValue();
     Local<Value> vvolumeTotalOriginal = jsonObj->Get(v8::String::NewFromUtf8(isolate,"volumeTotalOriginal"));
-    if (vvolumeTotalOriginal->IsUndefined(isolate)) {
-        ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->volumeTotalOriginal")));
+    if (vvolumeTotalOriginal->IsUndefined()) {
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->volumeTotalOriginal")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
     int32_t volumeTotalOriginal = vvolumeTotalOriginal->Int32Value();
     Local<Value> timeCondition = jsonObj->Get(v8::String::NewFromUtf8(isolate,"timeCondition"));
-    if (timeCondition->IsUndefined(isolate)) {
-        ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->timeCondition")));
+    if (timeCondition->IsUndefined()) {
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->timeCondition")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
     String::AsciiValue timeCondition_(timeCondition->ToString());
     Local<Value> volumeCondition = jsonObj->Get(v8::String::NewFromUtf8(isolate,"volumeCondition"));
-    if (volumeCondition->IsUndefined(isolate)) {
-        ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->volumeCondition")));
+    if (volumeCondition->IsUndefined()) {
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->volumeCondition")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
     String::AsciiValue volumeCondition_(volumeCondition->ToString());
     Local<Value> vminVolume = jsonObj->Get(v8::String::NewFromUtf8(isolate,"minVolume"));
-    if (vminVolume->IsUndefined(isolate)) {
-        ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->minVolume")));
+    if (vminVolume->IsUndefined()) {
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->minVolume")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
     int32_t minVolume = vminVolume->Int32Value();
     Local<Value> forceCloseReason = jsonObj->Get(v8::String::NewFromUtf8(isolate,"forceCloseReason"));
-    if (forceCloseReason->IsUndefined(isolate)) {
-        ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->forceCloseReason")));
+    if (forceCloseReason->IsUndefined()) {
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->forceCloseReason")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
     String::AsciiValue forceCloseReason_(forceCloseReason->ToString());
     Local<Value> visAutoSuspend = jsonObj->Get(v8::String::NewFromUtf8(isolate,"isAutoSuspend"));
-    if (visAutoSuspend->IsUndefined(isolate)) {
-        ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->isAutoSuspend")));
+    if (visAutoSuspend->IsUndefined()) {
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->isAutoSuspend")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
     int32_t isAutoSuspend = visAutoSuspend->Int32Value();
     Local<Value> vuserForceClose = jsonObj->Get(v8::String::NewFromUtf8(isolate,"userForceClose"));
-    if (vuserForceClose->IsUndefined(isolate)) {
-        ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->userForceClose")));
+    if (vuserForceClose->IsUndefined()) {
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->userForceClose")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
@@ -578,20 +584,20 @@ void WrapTrader::ReqOrderInsert(const FunctionCallbackInfo<Value>& args) {
     log.append(" ");
 
     Local<Value> orderRef = jsonObj->Get(v8::String::NewFromUtf8(isolate,"orderRef"));
-    if (!orderRef->IsUndefined(isolate)) {
+    if (!orderRef->IsUndefined()) {
         String::AsciiValue orderRef_(orderRef->ToString());
         strcpy(req.OrderRef, ((std::string)*orderRef_).c_str());  
         log.append("orderRef:").append((std::string)*orderRef_).append("|");
     }
 
     Local<Value> vstopPrice = jsonObj->Get(v8::String::NewFromUtf8(isolate,"stopPrice"));
-    if(!vstopPrice->IsUndefined(isolate)){
+    if(!vstopPrice->IsUndefined()){
         double stopPrice = vstopPrice->NumberValue();
         req.StopPrice = stopPrice;
         log.append("stopPrice:").append(to_string(stopPrice)).append("|");
     }
     Local<Value> contingentCondition = jsonObj->Get(v8::String::NewFromUtf8(isolate,"contingentCondition"));
-    if (!contingentCondition->IsUndefined(isolate)) {
+    if (!contingentCondition->IsUndefined()) {
         String::AsciiValue contingentCondition_(contingentCondition->ToString());
         req.ContingentCondition = ((std::string)*contingentCondition_)[0];
         log.append("contingentCondition:").append((std::string)*contingentCondition_).append("|");
@@ -637,17 +643,17 @@ void WrapTrader::ReqOrderAction(const FunctionCallbackInfo<Value>& args) {
     Isolate* isolate = args.GetIsolate();
     std::string log = "wrap_trader ReqOrderAction------>";
 
-    if (args[0]->IsUndefined(isolate) || !args[0]->IsObject()) {
+    if (args[0]->IsUndefined() || !args[0]->IsObject()) {
         std::string _head = std::string(log);
         logger_cout(_head.append(" Wrong FunctionCallbackInfo<Value>").c_str());
-        ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>")));
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
     int uuid = -1;
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
 
-    if (!args[1]->IsUndefined(isolate) && args[1]->IsFunction()) {
+    if (!args[1]->IsUndefined() && args[1]->IsFunction()) {
         uuid = ++s_uuid;
         fun_rtncb_map[uuid] = Persistent<Function>::New(Local<Function>::Cast(args[1]));
         std::string _head = std::string(log);
@@ -656,29 +662,29 @@ void WrapTrader::ReqOrderAction(const FunctionCallbackInfo<Value>& args) {
 
     Local<Object> jsonObj = args[0]->ToObject();
     Local<Value> vbrokerId = jsonObj->Get(v8::String::NewFromUtf8(isolate,"brokerId"));
-    if (vbrokerId->IsUndefined(isolate)) {
-        ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->brokerId")));
+    if (vbrokerId->IsUndefined()) {
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->brokerId")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
     String::AsciiValue brokerId_(vbrokerId->ToString());
     Local<Value> vinvestorId = jsonObj->Get(v8::String::NewFromUtf8(isolate,"investorId"));
-    if (vinvestorId->IsUndefined(isolate)) {
-        ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->investorId")));
+    if (vinvestorId->IsUndefined()) {
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->investorId")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
     String::AsciiValue investorId_(vinvestorId->ToString());
     Local<Value> vinstrumentId = jsonObj->Get(v8::String::NewFromUtf8(isolate,"instrumentId"));
-    if (vinstrumentId->IsUndefined(isolate)) {
-        ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->instrumentId")));
+    if (vinstrumentId->IsUndefined()) {
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->instrumentId")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
     String::AsciiValue instrumentId_(vinstrumentId->ToString());
     Local<Value> vactionFlag = jsonObj->Get(v8::String::NewFromUtf8(isolate,"actionFlag"));
-    if (vactionFlag->IsUndefined(isolate)) {
-        ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->actionFlag")));
+    if (vactionFlag->IsUndefined()) {
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->actionFlag")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
@@ -689,31 +695,31 @@ void WrapTrader::ReqOrderAction(const FunctionCallbackInfo<Value>& args) {
 
     log.append(" ");
     Local<Value> vorderRef = jsonObj->Get(v8::String::NewFromUtf8(isolate,"orderRef"));
-    if (!vorderRef->IsUndefined(isolate)) {
+    if (!vorderRef->IsUndefined()) {
         String::AsciiValue orderRef_(vorderRef->ToString());
         strcpy(req.OrderRef, ((std::string)*orderRef_).c_str());
         log.append((std::string)*orderRef_).append("|");
     }
     Local<Value> vfrontId = jsonObj->Get(v8::String::NewFromUtf8(isolate,"frontId"));
-    if (!vfrontId->IsUndefined(isolate)) {
+    if (!vfrontId->IsUndefined()) {
         int32_t frontId = vfrontId->Int32Value();
         req.FrontID = frontId;
         log.append(to_string(frontId)).append("|");
     }
     Local<Value> vsessionId = jsonObj->Get(v8::String::NewFromUtf8(isolate,"sessionId"));
-    if (!vsessionId->IsUndefined(isolate)) {
+    if (!vsessionId->IsUndefined()) {
         int32_t sessionId = vsessionId->Int32Value();
         req.SessionID = sessionId;
         log.append(to_string(sessionId)).append("|");
     }
     Local<Value> vexchangeID = jsonObj->Get(v8::String::NewFromUtf8(isolate,"exchangeID"));
-    if (!vexchangeID->IsUndefined(isolate)) {
+    if (!vexchangeID->IsUndefined()) {
         String::AsciiValue exchangeID_(vexchangeID->ToString());
         strcpy(req.ExchangeID, ((std::string)*exchangeID_).c_str());
         log.append((std::string)*exchangeID_).append("|");
     }
     Local<Value> vorderSysID = jsonObj->Get(v8::String::NewFromUtf8(isolate,"orderSysID"));
-    if (vorderSysID->IsUndefined(isolate)) {
+    if (vorderSysID->IsUndefined()) {
         String::AsciiValue orderSysID_(vorderSysID->ToString());
         strcpy(req.OrderSysID, ((std::string)*orderSysID_).c_str());
         log.append((std::string)*orderSysID_).append("|");
@@ -738,17 +744,17 @@ void WrapTrader::ReqQryInstrumentMarginRate(const FunctionCallbackInfo<Value>& a
     Isolate* isolate = args.GetIsolate();
     std::string log = "wrap_trader ReqQryInstrumentMarginRate------>";
 
-    if (args[0]->IsUndefined(isolate) || args[1]->IsUndefined(isolate) || args[2]->IsUndefined(isolate) || args[3]->IsUndefined(isolate)) {
+    if (args[0]->IsUndefined() || args[1]->IsUndefined() || args[2]->IsUndefined() || args[3]->IsUndefined()) {
     std::string _head = std::string(log);
     logger_cout(_head.append(" Wrong FunctionCallbackInfo<Value>").c_str());
-    ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>")));
+    isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>")));
             args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
     int uuid = -1;
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
 
-    if (!args[4]->IsUndefined(isolate) && args[4]->IsFunction()) {
+    if (!args[4]->IsUndefined() && args[4]->IsFunction()) {
     uuid = ++s_uuid;
     fun_rtncb_map[uuid] = Persistent<Function>::New(Local<Function>::Cast(args[4]));
     std::string _head = std::string(log);
@@ -784,16 +790,16 @@ void WrapTrader::ReqQryDepthMarketData(const FunctionCallbackInfo<Value>& args) 
     Isolate* isolate = args.GetIsolate();
     std::string log = "wrap_trader ReqQryDepthMarketData------>";
 
-    if (args[0]->IsUndefined(isolate)) {
+    if (args[0]->IsUndefined()) {
         std::string _head = std::string(log);
         logger_cout(_head.append(" Wrong FunctionCallbackInfo<Value>").c_str());
-        ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>")));
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
     int uuid = -1;
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
-    if (!args[1]->IsUndefined(isolate) && args[1]->IsFunction()) {
+    if (!args[1]->IsUndefined() && args[1]->IsFunction()) {
         uuid = ++s_uuid;
         fun_rtncb_map[uuid] = Persistent<Function>::New(Local<Function>::Cast(args[1]));
         std::string _head = std::string(log);
@@ -817,16 +823,16 @@ void WrapTrader::ReqQrySettlementInfo(const FunctionCallbackInfo<Value>& args) {
     Isolate* isolate = args.GetIsolate();
     std::string log = "wrap_trader ReqQrySettlementInfo------>";
 
-    if (args[0]->IsUndefined(isolate) || args[1]->IsUndefined(isolate) || args[2]->IsUndefined(isolate)) {
+    if (args[0]->IsUndefined() || args[1]->IsUndefined() || args[2]->IsUndefined()) {
     std::string _head = std::string(log);
     logger_cout(_head.append(" Wrong FunctionCallbackInfo<Value>").c_str());
-    ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>")));
+    isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>")));
             args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
     int uuid = -1;
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
-    if (!args[3]->IsUndefined(isolate) && args[3]->IsFunction()) {
+    if (!args[3]->IsUndefined() && args[3]->IsFunction()) {
     uuid = ++s_uuid;
     fun_rtncb_map[uuid] = Persistent<Function>::New(Local<Function>::Cast(args[3]));
     std::string _head = std::string(log);
@@ -895,7 +901,7 @@ void WrapTrader::FunCallback(CbRtnField *data) {
     }
     case T_ON_DISCONNECTED:
     {
-                  Local<Value> argv[1] = { Int32::New(data->nReason) };
+                  Local<Value> argv[1] = { Int32::New(isolate,data->nReason) };
                   cIt->second->Call(Context::GetCurrent()->Global(), 1, argv);
                   break;
     }
@@ -1043,7 +1049,7 @@ void WrapTrader::FunRtnCallback(int result, void* baton) {
     LookupCtpApiBaton* tmp = static_cast<LookupCtpApiBaton*>(baton);     
     if (tmp->uuid != -1) {
     std::map<int, Persistent<Function> >::iterator it = fun_rtncb_map.find(tmp->uuid);
-    Local<Value> argv[2] = { Local<Value>::New(Int32::New(tmp->nResult)),Local<Value>::New(Int32::New(tmp->iRequestID)) };
+    Local<Value> argv[2] = { Local<Value>::New(Int32::New(isolate,tmp->nResult)),Local<Value>::New(Int32::New(isolate,tmp->iRequestID)) };
     it->second->Call(Context::GetCurrent()->Global(), 2, argv);
     it->second.Dispose();
     fun_rtncb_map.erase(tmp->uuid);          
@@ -1053,8 +1059,8 @@ void WrapTrader::FunRtnCallback(int result, void* baton) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 void WrapTrader::pkg_cb_userlogin(CbRtnField* data, Local<Value>*cbArray) {
-    *cbArray = Int32::New(data->nRequestID);
-    *(cbArray + 1) = Boolean::New(data->bIsLast)->ToBoolean();
+    *cbArray = Int32::New(isolate,data->nRequestID);
+    *(cbArray + 1) = Boolean::New(isolate,data->bIsLast)->ToBoolean();
     if (data->rtnField){  
         CThostFtdcRspUserLoginField* pRspUserLogin = static_cast<CThostFtdcRspUserLoginField*>(data->rtnField);
     Local<Object> jsonRtn = Object::New();
@@ -1063,8 +1069,8 @@ void WrapTrader::pkg_cb_userlogin(CbRtnField* data, Local<Value>*cbArray) {
     jsonRtn->Set(String::NewFromUtf8(isolate,"BrokerID"), String::NewFromUtf8(isolate,pRspUserLogin->BrokerID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"UserID"), String::NewFromUtf8(isolate,pRspUserLogin->UserID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"SystemName"), String::NewFromUtf8(isolate,pRspUserLogin->SystemName));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"FrontID"), Int32::New(pRspUserLogin->FrontID));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"SessionID"), Int32::New(pRspUserLogin->SessionID));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"FrontID"), Int32::New(isolate,pRspUserLogin->FrontID));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"SessionID"), Int32::New(isolate,pRspUserLogin->SessionID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"MaxOrderRef"), String::NewFromUtf8(isolate,pRspUserLogin->MaxOrderRef));
     jsonRtn->Set(String::NewFromUtf8(isolate,"SHFETime"), String::NewFromUtf8(isolate,pRspUserLogin->SHFETime));
     jsonRtn->Set(String::NewFromUtf8(isolate,"DCETime"), String::NewFromUtf8(isolate,pRspUserLogin->DCETime));
@@ -1081,8 +1087,8 @@ void WrapTrader::pkg_cb_userlogin(CbRtnField* data, Local<Value>*cbArray) {
     return;
 }
 void WrapTrader::pkg_cb_userlogout(CbRtnField* data, Local<Value>*cbArray) {
-    *cbArray = Int32::New(data->nRequestID);
-    *(cbArray + 1) = Boolean::New(data->bIsLast)->ToBoolean();
+    *cbArray = Int32::New(isolate,data->nRequestID);
+    *(cbArray + 1) = Boolean::New(isolate,data->bIsLast)->ToBoolean();
     if (data->rtnField){ 
         CThostFtdcRspUserLoginField* pRspUserLogin = static_cast<CThostFtdcRspUserLoginField*>(data->rtnField);
 
@@ -1098,8 +1104,8 @@ void WrapTrader::pkg_cb_userlogout(CbRtnField* data, Local<Value>*cbArray) {
     return;
 }
 void WrapTrader::pkg_cb_confirm(CbRtnField* data, Local<Value>*cbArray) {
-    *cbArray = Int32::New(data->nRequestID);
-    *(cbArray + 1) = Boolean::New(data->bIsLast)->ToBoolean();
+    *cbArray = Int32::New(isolate,data->nRequestID);
+    *(cbArray + 1) = Boolean::New(isolate,data->bIsLast)->ToBoolean();
     if (data->rtnField){ 
         CThostFtdcSettlementInfoConfirmField* pSettlementInfoConfirm = static_cast<CThostFtdcSettlementInfoConfirmField*>(data->rtnField);
     Local<Object> jsonRtn = Object::New();
@@ -1116,8 +1122,8 @@ void WrapTrader::pkg_cb_confirm(CbRtnField* data, Local<Value>*cbArray) {
     return;
 }
 void WrapTrader::pkg_cb_orderinsert(CbRtnField* data, Local<Value>*cbArray) {
-    *cbArray = Int32::New(data->nRequestID);
-    *(cbArray + 1) = Boolean::New(data->bIsLast)->ToBoolean();
+    *cbArray = Int32::New(isolate,data->nRequestID);
+    *(cbArray + 1) = Boolean::New(isolate,data->bIsLast)->ToBoolean();
     if (data->rtnField){ 
         CThostFtdcInputOrderField* pInputOrder = static_cast<CThostFtdcInputOrderField*>(data->rtnField);
     Local<Object> jsonRtn = Object::New();
@@ -1131,19 +1137,19 @@ void WrapTrader::pkg_cb_orderinsert(CbRtnField* data, Local<Value>*cbArray) {
     jsonRtn->Set(String::NewFromUtf8(isolate,"CombOffsetFlag"), String::NewFromUtf8(isolate,pInputOrder->CombOffsetFlag));
     jsonRtn->Set(String::NewFromUtf8(isolate,"CombHedgeFlag"), String::NewFromUtf8(isolate,pInputOrder->CombHedgeFlag));
     jsonRtn->Set(String::NewFromUtf8(isolate,"LimitPrice"), Number::New(pInputOrder->LimitPrice));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeTotalOriginal"), Int32::New(pInputOrder->VolumeTotalOriginal));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeTotalOriginal"), Int32::New(isolate,pInputOrder->VolumeTotalOriginal));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TimeCondition"), String::NewFromUtf8(isolate,charto_string(pInputOrder->TimeCondition).c_str()));
     jsonRtn->Set(String::NewFromUtf8(isolate,"GTDDate"), String::NewFromUtf8(isolate,pInputOrder->GTDDate));
     jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeCondition"), String::NewFromUtf8(isolate,charto_string(pInputOrder->VolumeCondition).c_str()));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"MinVolume"), Int32::New(pInputOrder->MinVolume));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"MinVolume"), Int32::New(isolate,pInputOrder->MinVolume));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ContingentCondition"), String::NewFromUtf8(isolate,charto_string(pInputOrder->ContingentCondition).c_str()));
     jsonRtn->Set(String::NewFromUtf8(isolate,"StopPrice"), Number::New(pInputOrder->StopPrice));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ForceCloseReason"), String::NewFromUtf8(isolate,charto_string(pInputOrder->ForceCloseReason).c_str()));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"IsAutoSuspend"), Int32::New(pInputOrder->IsAutoSuspend));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"IsAutoSuspend"), Int32::New(isolate,pInputOrder->IsAutoSuspend));
     jsonRtn->Set(String::NewFromUtf8(isolate,"BusinessUnit"), String::NewFromUtf8(isolate,pInputOrder->BusinessUnit));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"RequestID"), Int32::New(pInputOrder->RequestID));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"UserForceClose"), Int32::New(pInputOrder->UserForceClose));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"IsSwapOrder"), Int32::New(pInputOrder->IsSwapOrder));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"RequestID"), Int32::New(isolate,pInputOrder->RequestID));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"UserForceClose"), Int32::New(isolate,pInputOrder->UserForceClose));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"IsSwapOrder"), Int32::New(isolate,pInputOrder->IsSwapOrder));
     *(cbArray + 2) = jsonRtn;
     }
     else {
@@ -1166,19 +1172,19 @@ void WrapTrader::pkg_cb_errorderinsert(CbRtnField* data, Local<Value>*cbArray) {
     jsonRtn->Set(String::NewFromUtf8(isolate,"CombOffsetFlag"), String::NewFromUtf8(isolate,pInputOrder->CombOffsetFlag));
     jsonRtn->Set(String::NewFromUtf8(isolate,"CombHedgeFlag"), String::NewFromUtf8(isolate,pInputOrder->CombHedgeFlag));
     jsonRtn->Set(String::NewFromUtf8(isolate,"LimitPrice"), Number::New(pInputOrder->LimitPrice));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeTotalOriginal"), Int32::New(pInputOrder->VolumeTotalOriginal));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeTotalOriginal"), Int32::New(isolate,pInputOrder->VolumeTotalOriginal));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TimeCondition"), String::NewFromUtf8(isolate,charto_string(pInputOrder->TimeCondition).c_str()));
     jsonRtn->Set(String::NewFromUtf8(isolate,"GTDDate"), String::NewFromUtf8(isolate,pInputOrder->GTDDate));
     jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeCondition"), String::NewFromUtf8(isolate,charto_string(pInputOrder->VolumeCondition).c_str()));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"MinVolume"), Int32::New(pInputOrder->MinVolume));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"MinVolume"), Int32::New(isolate,pInputOrder->MinVolume));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ContingentCondition"), String::NewFromUtf8(isolate,charto_string(pInputOrder->ContingentCondition).c_str()));
     jsonRtn->Set(String::NewFromUtf8(isolate,"StopPrice"), Number::New(pInputOrder->StopPrice));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ForceCloseReason"), String::NewFromUtf8(isolate,charto_string(pInputOrder->ForceCloseReason).c_str()));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"IsAutoSuspend"), Int32::New(pInputOrder->IsAutoSuspend));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"IsAutoSuspend"), Int32::New(isolate,pInputOrder->IsAutoSuspend));
     jsonRtn->Set(String::NewFromUtf8(isolate,"BusinessUnit"), String::NewFromUtf8(isolate,pInputOrder->BusinessUnit));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"RequestID"), Int32::New(pInputOrder->RequestID));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"UserForceClose"), Int32::New(pInputOrder->UserForceClose));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"IsSwapOrder"), Int32::New(pInputOrder->IsSwapOrder));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"RequestID"), Int32::New(isolate,pInputOrder->RequestID));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"UserForceClose"), Int32::New(isolate,pInputOrder->UserForceClose));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"IsSwapOrder"), Int32::New(isolate,pInputOrder->IsSwapOrder));
     *cbArray = jsonRtn;
     }
     else {
@@ -1188,23 +1194,23 @@ void WrapTrader::pkg_cb_errorderinsert(CbRtnField* data, Local<Value>*cbArray) {
     return;
 }
 void WrapTrader::pkg_cb_orderaction(CbRtnField* data, Local<Value>*cbArray) {
-    *cbArray = Int32::New(data->nRequestID);
-    *(cbArray + 1) = Boolean::New(data->bIsLast)->ToBoolean();
+    *cbArray = Int32::New(isolate,data->nRequestID);
+    *(cbArray + 1) = Boolean::New(isolate,data->bIsLast)->ToBoolean();
     if (data->rtnField){ 
         CThostFtdcInputOrderActionField* pInputOrderAction = static_cast<CThostFtdcInputOrderActionField*>(data->rtnField);
     Local<Object> jsonRtn = Object::New();
     jsonRtn->Set(String::NewFromUtf8(isolate,"BrokerID"), String::NewFromUtf8(isolate,pInputOrderAction->BrokerID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"InvestorID"), String::NewFromUtf8(isolate,pInputOrderAction->InvestorID));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"OrderActionRef"), Int32::New(pInputOrderAction->OrderActionRef));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"OrderActionRef"), Int32::New(isolate,pInputOrderAction->OrderActionRef));
     jsonRtn->Set(String::NewFromUtf8(isolate,"OrderRef"), String::NewFromUtf8(isolate,pInputOrderAction->OrderRef));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"RequestID"), Int32::New(pInputOrderAction->RequestID));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"FrontID"), Int32::New(pInputOrderAction->FrontID));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"SessionID"), Int32::New(pInputOrderAction->SessionID));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"RequestID"), Int32::New(isolate,pInputOrderAction->RequestID));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"FrontID"), Int32::New(isolate,pInputOrderAction->FrontID));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"SessionID"), Int32::New(isolate,pInputOrderAction->SessionID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ExchangeID"), String::NewFromUtf8(isolate,pInputOrderAction->ExchangeID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"OrderSysID"), String::NewFromUtf8(isolate,pInputOrderAction->OrderSysID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ActionFlag"), String::NewFromUtf8(isolate,charto_string(pInputOrderAction->ActionFlag).c_str()));
     jsonRtn->Set(String::NewFromUtf8(isolate,"LimitPrice"), Number::New(pInputOrderAction->LimitPrice));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeChange"), Int32::New(pInputOrderAction->VolumeChange));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeChange"), Int32::New(isolate,pInputOrderAction->VolumeChange));
     jsonRtn->Set(String::NewFromUtf8(isolate,"UserID"), String::NewFromUtf8(isolate,pInputOrderAction->UserID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"InstrumentID"), String::NewFromUtf8(isolate,pInputOrderAction->InstrumentID));
     *(cbArray + 2) = jsonRtn;
@@ -1221,19 +1227,19 @@ void WrapTrader::pkg_cb_errorderaction(CbRtnField* data, Local<Value>*cbArray) {
     Local<Object> jsonRtn = Object::New();
     jsonRtn->Set(String::NewFromUtf8(isolate,"BrokerID"), String::NewFromUtf8(isolate,pOrderAction->BrokerID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"InvestorID"), String::NewFromUtf8(isolate,pOrderAction->InvestorID));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"OrderActionRef"), Int32::New(pOrderAction->OrderActionRef));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"OrderActionRef"), Int32::New(isolate,pOrderAction->OrderActionRef));
     jsonRtn->Set(String::NewFromUtf8(isolate,"OrderRef"), String::NewFromUtf8(isolate,pOrderAction->OrderRef));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"RequestID"), Int32::New(pOrderAction->RequestID));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"FrontID"), Int32::New(pOrderAction->FrontID));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"SessionID"), Int32::New(pOrderAction->SessionID));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"RequestID"), Int32::New(isolate,pOrderAction->RequestID));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"FrontID"), Int32::New(isolate,pOrderAction->FrontID));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"SessionID"), Int32::New(isolate,pOrderAction->SessionID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ExchangeID"), String::NewFromUtf8(isolate,pOrderAction->ExchangeID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"OrderSysID"), String::NewFromUtf8(isolate,pOrderAction->OrderSysID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ActionFlag"), String::NewFromUtf8(isolate,charto_string(pOrderAction->ActionFlag).c_str()));
     jsonRtn->Set(String::NewFromUtf8(isolate,"LimitPrice"), Number::New(pOrderAction->LimitPrice));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeChange"), Int32::New(pOrderAction->VolumeChange));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeChange"), Int32::New(isolate,pOrderAction->VolumeChange));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ActionDate"), String::NewFromUtf8(isolate,pOrderAction->ActionDate));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TraderID"), String::NewFromUtf8(isolate,pOrderAction->TraderID));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"InstallID"), Int32::New(pOrderAction->InstallID));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"InstallID"), Int32::New(isolate,pOrderAction->InstallID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"OrderLocalID"), String::NewFromUtf8(isolate,pOrderAction->OrderLocalID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ActionLocalID"), String::NewFromUtf8(isolate,pOrderAction->ActionLocalID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ParticipantID"), String::NewFromUtf8(isolate,pOrderAction->ParticipantID));
@@ -1252,8 +1258,8 @@ void WrapTrader::pkg_cb_errorderaction(CbRtnField* data, Local<Value>*cbArray) {
     return;
 }
 void WrapTrader::pkg_cb_rspqryorder(CbRtnField* data, Local<Value>*cbArray) {
-    *cbArray = Int32::New(data->nRequestID);
-    *(cbArray + 1) = Boolean::New(data->bIsLast)->ToBoolean();
+    *cbArray = Int32::New(isolate,data->nRequestID);
+    *(cbArray + 1) = Boolean::New(isolate,data->bIsLast)->ToBoolean();
     if (data->rtnField){ 
         CThostFtdcOrderField* pOrder = static_cast<CThostFtdcOrderField*>(data->rtnField);
     Local<Object> jsonRtn = Object::New();
@@ -1267,34 +1273,34 @@ void WrapTrader::pkg_cb_rspqryorder(CbRtnField* data, Local<Value>*cbArray) {
     jsonRtn->Set(String::NewFromUtf8(isolate,"CombOffsetFlag"), String::NewFromUtf8(isolate,pOrder->CombOffsetFlag));
     jsonRtn->Set(String::NewFromUtf8(isolate,"CombHedgeFlag"), String::NewFromUtf8(isolate,pOrder->CombHedgeFlag));
     jsonRtn->Set(String::NewFromUtf8(isolate,"LimitPrice"), Number::New(pOrder->LimitPrice));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeTotalOriginal"), Int32::New(pOrder->VolumeTotalOriginal));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeTotalOriginal"), Int32::New(isolate,pOrder->VolumeTotalOriginal));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TimeCondition"), String::NewFromUtf8(isolate,charto_string(pOrder->TimeCondition).c_str()));
     jsonRtn->Set(String::NewFromUtf8(isolate,"GTDDate"), String::NewFromUtf8(isolate,pOrder->GTDDate));
     jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeCondition"), String::NewFromUtf8(isolate,charto_string(pOrder->VolumeCondition).c_str()));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"MinVolume"), Int32::New(pOrder->MinVolume));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"MinVolume"), Int32::New(isolate,pOrder->MinVolume));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ContingentCondition"), String::NewFromUtf8(isolate,charto_string(pOrder->ContingentCondition).c_str()));
     jsonRtn->Set(String::NewFromUtf8(isolate,"StopPrice"), Number::New(pOrder->StopPrice));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ForceCloseReason"), String::NewFromUtf8(isolate,charto_string(pOrder->ForceCloseReason).c_str()));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"IsAutoSuspend"), Int32::New(pOrder->IsAutoSuspend));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"IsAutoSuspend"), Int32::New(isolate,pOrder->IsAutoSuspend));
     jsonRtn->Set(String::NewFromUtf8(isolate,"BusinessUnit"), String::NewFromUtf8(isolate,pOrder->BusinessUnit));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"RequestID"), Int32::New(pOrder->RequestID));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"RequestID"), Int32::New(isolate,pOrder->RequestID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"OrderLocalID"), String::NewFromUtf8(isolate,pOrder->OrderLocalID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ExchangeID"), String::NewFromUtf8(isolate,pOrder->ExchangeID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ParticipantID"), String::NewFromUtf8(isolate,pOrder->ParticipantID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ClientID"), String::NewFromUtf8(isolate,pOrder->ClientID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ExchangeInstID"), String::NewFromUtf8(isolate,pOrder->ExchangeInstID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TraderID"), String::NewFromUtf8(isolate,pOrder->TraderID));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"InstallID"), Int32::New(pOrder->InstallID));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"InstallID"), Int32::New(isolate,pOrder->InstallID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"OrderSubmitStatus"), String::NewFromUtf8(isolate,charto_string(pOrder->OrderSubmitStatus).c_str()));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"NotifySequence"), Int32::New(pOrder->NotifySequence));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"NotifySequence"), Int32::New(isolate,pOrder->NotifySequence));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TradingDay"), String::NewFromUtf8(isolate,pOrder->TradingDay));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"SettlementID"), Int32::New(pOrder->SettlementID));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"SettlementID"), Int32::New(isolate,pOrder->SettlementID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"OrderSysID"), String::NewFromUtf8(isolate,pOrder->OrderSysID));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"OrderSource"), Int32::New(pOrder->OrderSource));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"OrderSource"), Int32::New(isolate,pOrder->OrderSource));
     jsonRtn->Set(String::NewFromUtf8(isolate,"OrderStatus"), String::NewFromUtf8(isolate,charto_string(pOrder->OrderStatus).c_str()));
     jsonRtn->Set(String::NewFromUtf8(isolate,"OrderType"), String::NewFromUtf8(isolate,charto_string(pOrder->OrderType).c_str()));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeTraded"), Int32::New(pOrder->VolumeTraded));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeTotal"), Int32::New(pOrder->VolumeTotal));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeTraded"), Int32::New(isolate,pOrder->VolumeTraded));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeTotal"), Int32::New(isolate,pOrder->VolumeTotal));
     jsonRtn->Set(String::NewFromUtf8(isolate,"InsertDate"), String::NewFromUtf8(isolate,pOrder->InsertDate));
     jsonRtn->Set(String::NewFromUtf8(isolate,"InsertTime"), String::NewFromUtf8(isolate,pOrder->InsertTime));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ActiveTime"), String::NewFromUtf8(isolate,pOrder->ActiveTime));
@@ -1303,17 +1309,17 @@ void WrapTrader::pkg_cb_rspqryorder(CbRtnField* data, Local<Value>*cbArray) {
     jsonRtn->Set(String::NewFromUtf8(isolate,"CancelTime"), String::NewFromUtf8(isolate,pOrder->CancelTime));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ActiveTraderID"), String::NewFromUtf8(isolate,pOrder->ActiveTraderID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ClearingPartID"), String::NewFromUtf8(isolate,pOrder->ClearingPartID));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"SequenceNo"), Int32::New(pOrder->SequenceNo));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"FrontID"), Int32::New(pOrder->FrontID));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"SessionID"), Int32::New(pOrder->SessionID));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"SequenceNo"), Int32::New(isolate,pOrder->SequenceNo));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"FrontID"), Int32::New(isolate,pOrder->FrontID));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"SessionID"), Int32::New(isolate,pOrder->SessionID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"UserProductInfo"), String::NewFromUtf8(isolate,pOrder->UserProductInfo));
     jsonRtn->Set(String::NewFromUtf8(isolate,"StatusMsg"), String::NewFromUtf8(isolate,pOrder->StatusMsg));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"UserForceClose"), Int32::New(pOrder->UserForceClose));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"UserForceClose"), Int32::New(isolate,pOrder->UserForceClose));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ActiveUserID"), String::NewFromUtf8(isolate,pOrder->ActiveUserID));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"BrokerOrderSeq"), Int32::New(pOrder->BrokerOrderSeq));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"BrokerOrderSeq"), Int32::New(isolate,pOrder->BrokerOrderSeq));
     jsonRtn->Set(String::NewFromUtf8(isolate,"RelativeOrderSysID"), String::NewFromUtf8(isolate,pOrder->RelativeOrderSysID));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"ZCETotalTradedVolume"), Int32::New(pOrder->ZCETotalTradedVolume));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"IsSwapOrder"), Int32::New(pOrder->IsSwapOrder));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"ZCETotalTradedVolume"), Int32::New(isolate,pOrder->ZCETotalTradedVolume));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"IsSwapOrder"), Int32::New(isolate,pOrder->IsSwapOrder));
     *(cbArray + 2) = jsonRtn;
     }
     else {
@@ -1336,34 +1342,34 @@ void WrapTrader::pkg_cb_rtnorder(CbRtnField* data, Local<Value>*cbArray) {
     jsonRtn->Set(String::NewFromUtf8(isolate,"CombOffsetFlag"), String::NewFromUtf8(isolate,pOrder->CombOffsetFlag));
     jsonRtn->Set(String::NewFromUtf8(isolate,"CombHedgeFlag"), String::NewFromUtf8(isolate,pOrder->CombHedgeFlag));
     jsonRtn->Set(String::NewFromUtf8(isolate,"LimitPrice"), Number::New(pOrder->LimitPrice));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeTotalOriginal"), Int32::New(pOrder->VolumeTotalOriginal));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeTotalOriginal"), Int32::New(isolate,pOrder->VolumeTotalOriginal));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TimeCondition"), String::NewFromUtf8(isolate,charto_string(pOrder->TimeCondition).c_str()));
     jsonRtn->Set(String::NewFromUtf8(isolate,"GTDDate"), String::NewFromUtf8(isolate,pOrder->GTDDate));
     jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeCondition"), String::NewFromUtf8(isolate,charto_string(pOrder->VolumeCondition).c_str()));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"MinVolume"), Int32::New(pOrder->MinVolume));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"MinVolume"), Int32::New(isolate,pOrder->MinVolume));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ContingentCondition"), String::NewFromUtf8(isolate,charto_string(pOrder->ContingentCondition).c_str()));
     jsonRtn->Set(String::NewFromUtf8(isolate,"StopPrice"), Number::New(pOrder->StopPrice));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ForceCloseReason"), String::NewFromUtf8(isolate,charto_string(pOrder->ForceCloseReason).c_str()));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"IsAutoSuspend"), Int32::New(pOrder->IsAutoSuspend));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"IsAutoSuspend"), Int32::New(isolate,pOrder->IsAutoSuspend));
     jsonRtn->Set(String::NewFromUtf8(isolate,"BusinessUnit"), String::NewFromUtf8(isolate,pOrder->BusinessUnit));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"RequestID"), Int32::New(pOrder->RequestID));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"RequestID"), Int32::New(isolate,pOrder->RequestID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"OrderLocalID"), String::NewFromUtf8(isolate,pOrder->OrderLocalID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ExchangeID"), String::NewFromUtf8(isolate,pOrder->ExchangeID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ParticipantID"), String::NewFromUtf8(isolate,pOrder->ParticipantID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ClientID"), String::NewFromUtf8(isolate,pOrder->ClientID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ExchangeInstID"), String::NewFromUtf8(isolate,pOrder->ExchangeInstID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TraderID"), String::NewFromUtf8(isolate,pOrder->TraderID));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"InstallID"), Int32::New(pOrder->InstallID));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"InstallID"), Int32::New(isolate,pOrder->InstallID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"OrderSubmitStatus"), String::NewFromUtf8(isolate,charto_string(pOrder->OrderSubmitStatus).c_str()));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"NotifySequence"), Int32::New(pOrder->NotifySequence));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"NotifySequence"), Int32::New(isolate,pOrder->NotifySequence));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TradingDay"), String::NewFromUtf8(isolate,pOrder->TradingDay));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"SettlementID"), Int32::New(pOrder->SettlementID));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"SettlementID"), Int32::New(isolate,pOrder->SettlementID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"OrderSysID"), String::NewFromUtf8(isolate,pOrder->OrderSysID));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"OrderSource"), Int32::New(pOrder->OrderSource));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"OrderSource"), Int32::New(isolate,pOrder->OrderSource));
     jsonRtn->Set(String::NewFromUtf8(isolate,"OrderStatus"), String::NewFromUtf8(isolate,charto_string(pOrder->OrderStatus).c_str()));
     jsonRtn->Set(String::NewFromUtf8(isolate,"OrderType"), String::NewFromUtf8(isolate,charto_string(pOrder->OrderType).c_str()));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeTraded"), Int32::New(pOrder->VolumeTraded));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeTotal"), Int32::New(pOrder->VolumeTotal));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeTraded"), Int32::New(isolate,pOrder->VolumeTraded));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeTotal"), Int32::New(isolate,pOrder->VolumeTotal));
     jsonRtn->Set(String::NewFromUtf8(isolate,"InsertDate"), String::NewFromUtf8(isolate,pOrder->InsertDate));
     jsonRtn->Set(String::NewFromUtf8(isolate,"InsertTime"), String::NewFromUtf8(isolate,pOrder->InsertTime));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ActiveTime"), String::NewFromUtf8(isolate,pOrder->ActiveTime));
@@ -1372,17 +1378,17 @@ void WrapTrader::pkg_cb_rtnorder(CbRtnField* data, Local<Value>*cbArray) {
     jsonRtn->Set(String::NewFromUtf8(isolate,"CancelTime"), String::NewFromUtf8(isolate,pOrder->CancelTime));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ActiveTraderID"), String::NewFromUtf8(isolate,pOrder->ActiveTraderID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ClearingPartID"), String::NewFromUtf8(isolate,pOrder->ClearingPartID));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"SequenceNo"), Int32::New(pOrder->SequenceNo));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"FrontID"), Int32::New(pOrder->FrontID));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"SessionID"), Int32::New(pOrder->SessionID));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"SequenceNo"), Int32::New(isolate,pOrder->SequenceNo));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"FrontID"), Int32::New(isolate,pOrder->FrontID));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"SessionID"), Int32::New(isolate,pOrder->SessionID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"UserProductInfo"), String::NewFromUtf8(isolate,pOrder->UserProductInfo));
     jsonRtn->Set(String::NewFromUtf8(isolate,"StatusMsg"), String::NewFromUtf8(isolate,pOrder->StatusMsg));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"UserForceClose"), Int32::New(pOrder->UserForceClose));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"UserForceClose"), Int32::New(isolate,pOrder->UserForceClose));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ActiveUserID"), String::NewFromUtf8(isolate,pOrder->ActiveUserID));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"BrokerOrderSeq"), Int32::New(pOrder->BrokerOrderSeq));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"BrokerOrderSeq"), Int32::New(isolate,pOrder->BrokerOrderSeq));
     jsonRtn->Set(String::NewFromUtf8(isolate,"RelativeOrderSysID"), String::NewFromUtf8(isolate,pOrder->RelativeOrderSysID));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"ZCETotalTradedVolume"), Int32::New(pOrder->ZCETotalTradedVolume));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"IsSwapOrder"), Int32::New(pOrder->IsSwapOrder));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"ZCETotalTradedVolume"), Int32::New(isolate,pOrder->ZCETotalTradedVolume));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"IsSwapOrder"), Int32::New(isolate,pOrder->IsSwapOrder));
     *cbArray = jsonRtn;
     }
     else {
@@ -1391,8 +1397,8 @@ void WrapTrader::pkg_cb_rtnorder(CbRtnField* data, Local<Value>*cbArray) {
     return;
 }
 void WrapTrader::pkg_cb_rqtrade(CbRtnField* data, Local<Value>*cbArray) {
-    *cbArray = Int32::New(data->nRequestID);
-    *(cbArray + 1) = Boolean::New(data->bIsLast)->ToBoolean();
+    *cbArray = Int32::New(isolate,data->nRequestID);
+    *(cbArray + 1) = Boolean::New(isolate,data->bIsLast)->ToBoolean();
     if (data->rtnField){ 
         CThostFtdcTradeField* pTrade = static_cast<CThostFtdcTradeField*>(data->rtnField);
     Local<Object> jsonRtn = Object::New();
@@ -1412,7 +1418,7 @@ void WrapTrader::pkg_cb_rqtrade(CbRtnField* data, Local<Value>*cbArray) {
     jsonRtn->Set(String::NewFromUtf8(isolate,"OffsetFlag"), String::NewFromUtf8(isolate,charto_string(pTrade->OffsetFlag).c_str()));
     jsonRtn->Set(String::NewFromUtf8(isolate,"HedgeFlag"), String::NewFromUtf8(isolate,charto_string(pTrade->HedgeFlag).c_str()));
     jsonRtn->Set(String::NewFromUtf8(isolate,"Price"), Number::New(pTrade->Price));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"Volume"), Int32::New(pTrade->Volume));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"Volume"), Int32::New(isolate,pTrade->Volume));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TradeDate"), String::NewFromUtf8(isolate,pTrade->TradeDate));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TradeTime"), String::NewFromUtf8(isolate,pTrade->TradeTime));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TradeType"), String::NewFromUtf8(isolate,charto_string(pTrade->TradeType).c_str()));
@@ -1421,10 +1427,10 @@ void WrapTrader::pkg_cb_rqtrade(CbRtnField* data, Local<Value>*cbArray) {
     jsonRtn->Set(String::NewFromUtf8(isolate,"OrderLocalID"), String::NewFromUtf8(isolate,pTrade->OrderLocalID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ClearingPartID"), String::NewFromUtf8(isolate,pTrade->ClearingPartID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"BusinessUnit"), String::NewFromUtf8(isolate,pTrade->BusinessUnit));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"SequenceNo"), Int32::New(pTrade->SequenceNo));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"SequenceNo"), Int32::New(isolate,pTrade->SequenceNo));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TradingDay"), String::NewFromUtf8(isolate,pTrade->TradingDay));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"SettlementID"), Int32::New(pTrade->SettlementID));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"BrokerOrderSeq"), Int32::New(pTrade->BrokerOrderSeq));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"SettlementID"), Int32::New(isolate,pTrade->SettlementID));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"BrokerOrderSeq"), Int32::New(isolate,pTrade->BrokerOrderSeq));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TradeSource"), String::NewFromUtf8(isolate,charto_string(pTrade->TradeSource).c_str()));
     *(cbArray + 2) = jsonRtn;
     }
@@ -1449,24 +1455,24 @@ void WrapTrader::pkg_cb_rtntrade(CbRtnField* data, Local<Value>*cbArray) {
     jsonRtn->Set(String::NewFromUtf8(isolate,"OrderSysID"), String::NewFromUtf8(isolate,pTrade->OrderSysID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ParticipantID"), String::NewFromUtf8(isolate,pTrade->ParticipantID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ClientID"), String::NewFromUtf8(isolate,pTrade->ClientID));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"TradingRole"), Int32::New(pTrade->TradingRole));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"TradingRole"), Int32::New(isolate,pTrade->TradingRole));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ExchangeInstID"), String::NewFromUtf8(isolate,pTrade->ExchangeInstID));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"OffsetFlag"), Int32::New(pTrade->OffsetFlag));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"HedgeFlag"), Int32::New(pTrade->HedgeFlag));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"OffsetFlag"), Int32::New(isolate,pTrade->OffsetFlag));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"HedgeFlag"), Int32::New(isolate,pTrade->HedgeFlag));
     jsonRtn->Set(String::NewFromUtf8(isolate,"Price"), Number::New(pTrade->Price));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"Volume"), Int32::New(pTrade->Volume));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"Volume"), Int32::New(isolate,pTrade->Volume));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TradeDate"), String::NewFromUtf8(isolate,pTrade->TradeDate));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TradeTime"), String::NewFromUtf8(isolate,pTrade->TradeTime));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"TradeType"), Int32::New(pTrade->TradeType));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"TradeType"), Int32::New(isolate,pTrade->TradeType));
     jsonRtn->Set(String::NewFromUtf8(isolate,"PriceSource"), String::NewFromUtf8(isolate,charto_string(pTrade->PriceSource).c_str()));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TraderID"), String::NewFromUtf8(isolate,pTrade->TraderID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"OrderLocalID"), String::NewFromUtf8(isolate,pTrade->OrderLocalID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ClearingPartID"), String::NewFromUtf8(isolate,pTrade->ClearingPartID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"BusinessUnit"), String::NewFromUtf8(isolate,pTrade->BusinessUnit));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"SequenceNo"), Int32::New(pTrade->SequenceNo));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"SequenceNo"), Int32::New(isolate,pTrade->SequenceNo));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TradingDay"), String::NewFromUtf8(isolate,pTrade->TradingDay));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"SettlementID"), Int32::New(pTrade->SettlementID));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"BrokerOrderSeq"), Int32::New(pTrade->BrokerOrderSeq));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"SettlementID"), Int32::New(isolate,pTrade->SettlementID));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"BrokerOrderSeq"), Int32::New(isolate,pTrade->BrokerOrderSeq));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TradeSource"), String::NewFromUtf8(isolate,charto_string(pTrade->TradeSource).c_str()));
     *cbArray = jsonRtn;
     }
@@ -1477,8 +1483,8 @@ void WrapTrader::pkg_cb_rtntrade(CbRtnField* data, Local<Value>*cbArray) {
     return;
 }
 void WrapTrader::pkg_cb_rqinvestorposition(CbRtnField* data, Local<Value>*cbArray) {
-    *cbArray = Int32::New(data->nRequestID);
-    *(cbArray + 1) = Boolean::New(data->bIsLast)->ToBoolean();
+    *cbArray = Int32::New(isolate,data->nRequestID);
+    *(cbArray + 1) = Boolean::New(isolate,data->bIsLast)->ToBoolean();
     if (data->rtnField){ 
         CThostFtdcInvestorPositionField* _pInvestorPosition = static_cast<CThostFtdcInvestorPositionField*>(data->rtnField);
     Local<Object> jsonRtn = Object::New();
@@ -1487,15 +1493,15 @@ void WrapTrader::pkg_cb_rqinvestorposition(CbRtnField* data, Local<Value>*cbArra
     jsonRtn->Set(String::NewFromUtf8(isolate,"InvestorID"), String::NewFromUtf8(isolate,_pInvestorPosition->InvestorID)); 
     jsonRtn->Set(String::NewFromUtf8(isolate,"PosiDirection"), String::NewFromUtf8(isolate,charto_string(_pInvestorPosition->PosiDirection).c_str()));
     jsonRtn->Set(String::NewFromUtf8(isolate,"HedgeFlag"), String::NewFromUtf8(isolate,charto_string(_pInvestorPosition->HedgeFlag).c_str()));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"PositionDate"), Int32::New(_pInvestorPosition->PositionDate));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"YdPosition"), Int32::New(_pInvestorPosition->YdPosition));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"Position"), Int32::New(_pInvestorPosition->Position));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"LongFrozen"), Int32::New(_pInvestorPosition->LongFrozen));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"ShortFrozen"), Int32::New(_pInvestorPosition->ShortFrozen));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"PositionDate"), Int32::New(isolate,_pInvestorPosition->PositionDate));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"YdPosition"), Int32::New(isolate,_pInvestorPosition->YdPosition));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"Position"), Int32::New(isolate,_pInvestorPosition->Position));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"LongFrozen"), Int32::New(isolate,_pInvestorPosition->LongFrozen));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"ShortFrozen"), Int32::New(isolate,_pInvestorPosition->ShortFrozen));
     jsonRtn->Set(String::NewFromUtf8(isolate,"LongFrozenAmount"), Number::New(_pInvestorPosition->LongFrozenAmount));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ShortFrozenAmount"), Number::New(_pInvestorPosition->ShortFrozenAmount));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"OpenVolume"), Int32::New(_pInvestorPosition->OpenVolume));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"CloseVolume"), Int32::New(_pInvestorPosition->CloseVolume));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"OpenVolume"), Int32::New(isolate,_pInvestorPosition->OpenVolume));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"CloseVolume"), Int32::New(isolate,_pInvestorPosition->CloseVolume));
     jsonRtn->Set(String::NewFromUtf8(isolate,"OpenAmount"), Number::New(_pInvestorPosition->OpenAmount));
     jsonRtn->Set(String::NewFromUtf8(isolate,"CloseAmount"), Number::New(_pInvestorPosition->CloseAmount));
     jsonRtn->Set(String::NewFromUtf8(isolate,"PositionCost"), Number::New(_pInvestorPosition->PositionCost));
@@ -1511,15 +1517,15 @@ void WrapTrader::pkg_cb_rqinvestorposition(CbRtnField* data, Local<Value>*cbArra
     jsonRtn->Set(String::NewFromUtf8(isolate,"PreSettlementPrice"), Number::New(_pInvestorPosition->PreSettlementPrice));
     jsonRtn->Set(String::NewFromUtf8(isolate,"SettlementPrice"), Number::New(_pInvestorPosition->SettlementPrice));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TradingDay"), String::NewFromUtf8(isolate,_pInvestorPosition->TradingDay));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"SettlementID"), Int32::New(_pInvestorPosition->SettlementID));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"SettlementID"), Int32::New(isolate,_pInvestorPosition->SettlementID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"OpenCost"), Number::New(_pInvestorPosition->OpenCost));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ExchangeMargin"), Number::New(_pInvestorPosition->ExchangeMargin));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"CombPosition"), Int32::New(_pInvestorPosition->CombPosition));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"CombLongFrozen"), Int32::New(_pInvestorPosition->CombLongFrozen));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"CombShortFrozen"), Int32::New(_pInvestorPosition->CombShortFrozen));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"CombPosition"), Int32::New(isolate,_pInvestorPosition->CombPosition));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"CombLongFrozen"), Int32::New(isolate,_pInvestorPosition->CombLongFrozen));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"CombShortFrozen"), Int32::New(isolate,_pInvestorPosition->CombShortFrozen));
     jsonRtn->Set(String::NewFromUtf8(isolate,"CloseProfitByDate"), Number::New(_pInvestorPosition->CloseProfitByDate));
     jsonRtn->Set(String::NewFromUtf8(isolate,"CloseProfitByTrade"), Number::New(_pInvestorPosition->CloseProfitByTrade));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"TodayPosition"), Int32::New(_pInvestorPosition->TodayPosition));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"TodayPosition"), Int32::New(isolate,_pInvestorPosition->TodayPosition));
     jsonRtn->Set(String::NewFromUtf8(isolate,"MarginRateByMoney"), Number::New(_pInvestorPosition->MarginRateByMoney));
     jsonRtn->Set(String::NewFromUtf8(isolate,"MarginRateByVolume"), Number::New(_pInvestorPosition->MarginRateByVolume));
     *(cbArray + 2) = jsonRtn;
@@ -1531,8 +1537,8 @@ void WrapTrader::pkg_cb_rqinvestorposition(CbRtnField* data, Local<Value>*cbArra
     return;
 }
 void WrapTrader::pkg_cb_rqinvestorpositiondetail(CbRtnField* data, Local<Value>*cbArray) {
-    *cbArray = Int32::New(data->nRequestID);
-    *(cbArray + 1) = Boolean::New(data->bIsLast)->ToBoolean();
+    *cbArray = Int32::New(isolate,data->nRequestID);
+    *(cbArray + 1) = Boolean::New(isolate,data->bIsLast)->ToBoolean();
     if (data->rtnField){ 
         CThostFtdcInvestorPositionDetailField* pInvestorPositionDetail = static_cast<CThostFtdcInvestorPositionDetailField*>(data->rtnField);
     Local<Object> jsonRtn = Object::New();
@@ -1543,10 +1549,10 @@ void WrapTrader::pkg_cb_rqinvestorpositiondetail(CbRtnField* data, Local<Value>*
     jsonRtn->Set(String::NewFromUtf8(isolate,"Direction"), String::NewFromUtf8(isolate,charto_string(pInvestorPositionDetail->Direction).c_str()));
     jsonRtn->Set(String::NewFromUtf8(isolate,"OpenDate"), String::NewFromUtf8(isolate,pInvestorPositionDetail->OpenDate));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TradeID"), String::NewFromUtf8(isolate,pInvestorPositionDetail->TradeID));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"Volume"), Int32::New(pInvestorPositionDetail->Volume));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"Volume"), Int32::New(isolate,pInvestorPositionDetail->Volume));
     jsonRtn->Set(String::NewFromUtf8(isolate,"OpenPrice"), Number::New(pInvestorPositionDetail->OpenPrice));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TradingDay"), String::NewFromUtf8(isolate,pInvestorPositionDetail->TradingDay));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"SettlementID"), Int32::New(pInvestorPositionDetail->SettlementID));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"SettlementID"), Int32::New(isolate,pInvestorPositionDetail->SettlementID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TradeType"), String::NewFromUtf8(isolate,charto_string(pInvestorPositionDetail->TradeType).c_str()));
     jsonRtn->Set(String::NewFromUtf8(isolate,"CombInstrumentID"), String::NewFromUtf8(isolate,pInvestorPositionDetail->CombInstrumentID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ExchangeID"), String::NewFromUtf8(isolate,pInvestorPositionDetail->ExchangeID));
@@ -1560,7 +1566,7 @@ void WrapTrader::pkg_cb_rqinvestorpositiondetail(CbRtnField* data, Local<Value>*
     jsonRtn->Set(String::NewFromUtf8(isolate,"MarginRateByVolume"), Number::New(pInvestorPositionDetail->MarginRateByVolume));
     jsonRtn->Set(String::NewFromUtf8(isolate,"LastSettlementPrice"), Number::New(pInvestorPositionDetail->LastSettlementPrice));
     jsonRtn->Set(String::NewFromUtf8(isolate,"SettlementPrice"), Number::New(pInvestorPositionDetail->SettlementPrice));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"CloseVolume"), Int32::New(pInvestorPositionDetail->CloseVolume));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"CloseVolume"), Int32::New(isolate,pInvestorPositionDetail->CloseVolume));
     jsonRtn->Set(String::NewFromUtf8(isolate,"CloseAmount"), Number::New(pInvestorPositionDetail->CloseAmount));
     *(cbArray + 2) = jsonRtn;
     }
@@ -1571,8 +1577,8 @@ void WrapTrader::pkg_cb_rqinvestorpositiondetail(CbRtnField* data, Local<Value>*
     return;
 }
 void WrapTrader::pkg_cb_rqtradingaccount(CbRtnField* data, Local<Value>*cbArray) {
-    *cbArray = Int32::New(data->nRequestID);
-    *(cbArray + 1) = Boolean::New(data->bIsLast)->ToBoolean();
+    *cbArray = Int32::New(isolate,data->nRequestID);
+    *(cbArray + 1) = Boolean::New(isolate,data->bIsLast)->ToBoolean();
     if (data->rtnField){ 
         CThostFtdcTradingAccountField *pTradingAccount = static_cast<CThostFtdcTradingAccountField*>(data->rtnField);
     Local<Object> jsonRtn = Object::New();
@@ -1600,7 +1606,7 @@ void WrapTrader::pkg_cb_rqtradingaccount(CbRtnField* data, Local<Value>*cbArray)
     jsonRtn->Set(String::NewFromUtf8(isolate,"WithdrawQuota"), Number::New(pTradingAccount->WithdrawQuota));
     jsonRtn->Set(String::NewFromUtf8(isolate,"Reserve"), Number::New(pTradingAccount->Reserve));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TradingDay"), String::NewFromUtf8(isolate,pTradingAccount->TradingDay));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"SettlementID"), Int32::New(pTradingAccount->SettlementID));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"SettlementID"), Int32::New(isolate,pTradingAccount->SettlementID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"Credit"), Number::New(pTradingAccount->Credit));
     jsonRtn->Set(String::NewFromUtf8(isolate,"Mortgage"), Number::New(pTradingAccount->Mortgage));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ExchangeMargin"), Number::New(pTradingAccount->ExchangeMargin));
@@ -1631,8 +1637,8 @@ void WrapTrader::pkg_cb_rqtradingaccount(CbRtnField* data, Local<Value>*cbArray)
     return;
 }
 void WrapTrader::pkg_cb_rqinstrument(CbRtnField* data, Local<Value>*cbArray) {
-    *cbArray = Int32::New(data->nRequestID);
-    *(cbArray + 1) = Boolean::New(data->bIsLast)->ToBoolean();
+    *cbArray = Int32::New(isolate,data->nRequestID);
+    *(cbArray + 1) = Boolean::New(isolate,data->bIsLast)->ToBoolean();
     if (data->rtnField){ 
         CThostFtdcInstrumentField *pInstrument = static_cast<CThostFtdcInstrumentField*>(data->rtnField);
     Local<Object> jsonRtn = Object::New();
@@ -1642,21 +1648,21 @@ void WrapTrader::pkg_cb_rqinstrument(CbRtnField* data, Local<Value>*cbArray) {
     jsonRtn->Set(String::NewFromUtf8(isolate,"ExchangeInstID"), String::NewFromUtf8(isolate,pInstrument->ExchangeInstID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ProductID"), String::NewFromUtf8(isolate,pInstrument->ProductID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ProductClass"), String::NewFromUtf8(isolate,charto_string(pInstrument->ProductClass).c_str()));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"DeliveryYear"), Int32::New(pInstrument->DeliveryYear));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"DeliveryMonth"), Int32::New(pInstrument->DeliveryMonth));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"MaxMarketOrderVolume"), Int32::New(pInstrument->MaxMarketOrderVolume));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"MinMarketOrderVolume"), Int32::New(pInstrument->MinMarketOrderVolume));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"MaxLimitOrderVolume"), Int32::New(pInstrument->MaxLimitOrderVolume));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"MinLimitOrderVolume"), Int32::New(pInstrument->MinLimitOrderVolume));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeMultiple"), Int32::New(pInstrument->VolumeMultiple));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"DeliveryYear"), Int32::New(isolate,pInstrument->DeliveryYear));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"DeliveryMonth"), Int32::New(isolate,pInstrument->DeliveryMonth));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"MaxMarketOrderVolume"), Int32::New(isolate,pInstrument->MaxMarketOrderVolume));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"MinMarketOrderVolume"), Int32::New(isolate,pInstrument->MinMarketOrderVolume));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"MaxLimitOrderVolume"), Int32::New(isolate,pInstrument->MaxLimitOrderVolume));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"MinLimitOrderVolume"), Int32::New(isolate,pInstrument->MinLimitOrderVolume));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeMultiple"), Int32::New(isolate,pInstrument->VolumeMultiple));
     jsonRtn->Set(String::NewFromUtf8(isolate,"PriceTick"), Number::New(pInstrument->PriceTick));
     jsonRtn->Set(String::NewFromUtf8(isolate,"CreateDate"), String::NewFromUtf8(isolate,pInstrument->CreateDate));
     jsonRtn->Set(String::NewFromUtf8(isolate,"OpenDate"), String::NewFromUtf8(isolate,pInstrument->OpenDate));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ExpireDate"), String::NewFromUtf8(isolate,pInstrument->ExpireDate));
     jsonRtn->Set(String::NewFromUtf8(isolate,"StartDelivDate"), String::NewFromUtf8(isolate,pInstrument->StartDelivDate));
     jsonRtn->Set(String::NewFromUtf8(isolate,"EndDelivDate"), String::NewFromUtf8(isolate,pInstrument->EndDelivDate));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"InstLifePhase"), Int32::New(pInstrument->InstLifePhase));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"IsTrading"), Int32::New(pInstrument->IsTrading));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"InstLifePhase"), Int32::New(isolate,pInstrument->InstLifePhase));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"IsTrading"), Int32::New(isolate,pInstrument->IsTrading));
     jsonRtn->Set(String::NewFromUtf8(isolate,"PositionType"), String::NewFromUtf8(isolate,charto_string(pInstrument->PositionType).c_str()));
     jsonRtn->Set(String::NewFromUtf8(isolate,"PositionDateType"), String::NewFromUtf8(isolate,charto_string(pInstrument->PositionDateType).c_str()));
     jsonRtn->Set(String::NewFromUtf8(isolate,"LongMarginRatio"), Number::New(pInstrument->LongMarginRatio));
@@ -1671,8 +1677,8 @@ void WrapTrader::pkg_cb_rqinstrument(CbRtnField* data, Local<Value>*cbArray) {
     return;
 }
 void WrapTrader::pkg_cb_rqdepthmarketdata(CbRtnField* data, Local<Value>*cbArray) {
-    *cbArray = Int32::New(data->nRequestID);
-    *(cbArray + 1) = Boolean::New(data->bIsLast)->ToBoolean();
+    *cbArray = Int32::New(isolate,data->nRequestID);
+    *(cbArray + 1) = Boolean::New(isolate,data->bIsLast)->ToBoolean();
     if (data->rtnField){ 
         CThostFtdcDepthMarketDataField *pDepthMarketData = static_cast<CThostFtdcDepthMarketDataField*>(data->rtnField);
     Local<Object> jsonRtn = Object::New();
@@ -1687,7 +1693,7 @@ void WrapTrader::pkg_cb_rqdepthmarketdata(CbRtnField* data, Local<Value>*cbArray
     jsonRtn->Set(String::NewFromUtf8(isolate,"OpenPrice"), Number::New(pDepthMarketData->OpenPrice));
     jsonRtn->Set(String::NewFromUtf8(isolate,"HighestPrice"), Number::New(pDepthMarketData->HighestPrice));
     jsonRtn->Set(String::NewFromUtf8(isolate,"LowestPrice"), Number::New(pDepthMarketData->LowestPrice));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"Volume"), Int32::New(pDepthMarketData->Volume));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"Volume"), Int32::New(isolate,pDepthMarketData->Volume));
     jsonRtn->Set(String::NewFromUtf8(isolate,"Turnover"), Number::New(pDepthMarketData->Turnover));
     jsonRtn->Set(String::NewFromUtf8(isolate,"OpenInterest"), Number::New(pDepthMarketData->OpenInterest));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ClosePrice"), Number::New(pDepthMarketData->ClosePrice));
@@ -1697,7 +1703,7 @@ void WrapTrader::pkg_cb_rqdepthmarketdata(CbRtnField* data, Local<Value>*cbArray
     jsonRtn->Set(String::NewFromUtf8(isolate,"PreDelta"), Number::New(pDepthMarketData->PreDelta));
     jsonRtn->Set(String::NewFromUtf8(isolate,"CurrDelta"), Number::New(pDepthMarketData->CurrDelta));
     jsonRtn->Set(String::NewFromUtf8(isolate,"UpdateTime"), String::NewFromUtf8(isolate,pDepthMarketData->UpdateTime));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"UpdateMillisec"), Int32::New(pDepthMarketData->UpdateMillisec));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"UpdateMillisec"), Int32::New(isolate,pDepthMarketData->UpdateMillisec));
     jsonRtn->Set(String::NewFromUtf8(isolate,"BidPrice1"), Number::New(pDepthMarketData->BidPrice1));
     jsonRtn->Set(String::NewFromUtf8(isolate,"BidVolume1"), Number::New(pDepthMarketData->BidVolume1));
     jsonRtn->Set(String::NewFromUtf8(isolate,"AskPrice1"), Number::New(pDepthMarketData->AskPrice1));
@@ -1729,16 +1735,16 @@ void WrapTrader::pkg_cb_rqdepthmarketdata(CbRtnField* data, Local<Value>*cbArray
     return;
 }
 void WrapTrader::pkg_cb_rqsettlementinfo(CbRtnField* data, Local<Value>*cbArray) {
-    *cbArray = Int32::New(data->nRequestID);
-    *(cbArray + 1) = Boolean::New(data->bIsLast)->ToBoolean();
+    *cbArray = Int32::New(isolate,data->nRequestID);
+    *(cbArray + 1) = Boolean::New(isolate,data->bIsLast)->ToBoolean();
     if(data->rtnField!=NULL){
         CThostFtdcSettlementInfoField *pSettlementInfo = static_cast<CThostFtdcSettlementInfoField*>(data->rtnField);
     Local<Object> jsonRtn = Object::New();
     jsonRtn->Set(String::NewFromUtf8(isolate,"TradingDay"), String::NewFromUtf8(isolate,pSettlementInfo->TradingDay));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"SettlementID"), Int32::New(pSettlementInfo->SettlementID));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"SettlementID"), Int32::New(isolate,pSettlementInfo->SettlementID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"BrokerID"), String::NewFromUtf8(isolate,pSettlementInfo->BrokerID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"InvestorID"), String::NewFromUtf8(isolate,pSettlementInfo->InvestorID));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"SequenceNo"), Int32::New(pSettlementInfo->SequenceNo));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"SequenceNo"), Int32::New(isolate,pSettlementInfo->SequenceNo));
         jsonRtn->Set(String::NewFromUtf8(isolate,"Content"), String::NewFromUtf8(isolate,pSettlementInfo->Content));
         *(cbArray + 2) = jsonRtn;
     }
@@ -1749,8 +1755,8 @@ void WrapTrader::pkg_cb_rqsettlementinfo(CbRtnField* data, Local<Value>*cbArray)
     return;
 }
 void WrapTrader::pkg_cb_rsperror(CbRtnField* data, Local<Value>*cbArray) {
-    *cbArray = Int32::New(data->nRequestID);
-    *(cbArray + 1) = Boolean::New(data->bIsLast)->ToBoolean();
+    *cbArray = Int32::New(isolate,data->nRequestID);
+    *(cbArray + 1) = Boolean::New(isolate,data->bIsLast)->ToBoolean();
     *(cbArray + 2) = pkg_rspinfo(data->rspInfo);
     return;
 }
@@ -1758,7 +1764,7 @@ Local<Value> WrapTrader::pkg_rspinfo(void *vpRspInfo) {
     if (vpRspInfo) {
         CThostFtdcRspInfoField *pRspInfo = static_cast<CThostFtdcRspInfoField*>(vpRspInfo);
     Local<Object> jsonInfo = Object::New();
-    jsonInfo->Set(String::NewFromUtf8(isolate,"ErrorID"), Int32::New(pRspInfo->ErrorID));
+    jsonInfo->Set(String::NewFromUtf8(isolate,"ErrorID"), Int32::New(isolate,pRspInfo->ErrorID));
     jsonInfo->Set(String::NewFromUtf8(isolate,"ErrorMsg"), String::NewFromUtf8(isolate,pRspInfo->ErrorMsg));
     return jsonInfo;
     }
