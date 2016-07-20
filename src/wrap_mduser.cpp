@@ -98,7 +98,9 @@ void WrapMdUser::On(const FunctionCallbackInfo<Value>& args) {
 
     Local<String> eventName = args[0]->ToString();
     Local<Function> cb = Local<Function>::Cast(args[1]);
-    Persistent<Function> unRecoveryCb = Persistent<Function>::New(cb);
+    Persistent<Function> unRecoveryCb;// = PersistentBase<Function>::New(isolate,cb);
+    unRecoveryCb.Reset(isolate,cb);
+
     String::AsciiValue eNameAscii(eventName);
 
     std::map<const char*, int>::iterator eIt = event_map.find(*eNameAscii);
