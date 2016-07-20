@@ -7,39 +7,36 @@ using namespace v8;
 
 bool islog;//log?
 
-Handle<Value> CreateTrader(const Arguments& args) {
-  HandleScope scope;
-  return scope.Close(WrapTrader::NewInstance(args));
+void CreateTrader(const FunctionCallbackInfo<Value>& args) {
+    args.GetReturnValue().Set(WrapTrader::NewInstance(args));
 }
 
-Handle<Value> CreateMdUser(const Arguments& args) {
-	HandleScope scope;
-	return scope.Close(WrapMdUser::NewInstance(args));
+void CreateMdUser(const FunctionCallbackInfo<Value>& args) {
+    args.GetReturnValue().Set(WrapMdUser::NewInstance(args));
 }
 
-Handle<Value> Settings(const Arguments& args) {
-	HandleScope scope;
+void Settings(const FunctionCallbackInfo<Value>& args) {
+    Isolate* isolate = args.GetIsolate();
+    if (!args[0]->IsUndefined() && args[0]->IsObject()) {
+        Local<Object> setting = args[0]->ToObject();
+        Local<Value> log = setting->Get(String::NewFromUtf8(isolate,"log"));
+        if (!log->IsUndefined()) {
+           islog = log->BooleanValue();
+        }
+    }
 
-	if (!args[0]->IsUndefined() && args[0]->IsObject()) {
-		Local<Object> setting = args[0]->ToObject();
-		Local<Value> log = setting->Get(v8::String::New("log"));
-		if (!log->IsUndefined()) {
-			islog = log->BooleanValue();
-		}		
-	}
-
-	return scope.Close(Undefined());
+    args.GetReturnValue().Set(Undefined(isolate));
 }
 
-void Init(Handle<Object> exports) {
-	WrapTrader::Init(0);
-	WrapMdUser::Init(0);
-	exports->Set(String::NewSymbol("createTrader"),
-		FunctionTemplate::New(CreateTrader)->GetFunction());
-	exports->Set(String::NewSymbol("createMdUser"),
-		FunctionTemplate::New(CreateMdUser)->GetFunction());
-	exports->Set(String::NewSymbol("settings"),
-		FunctionTemplate::New(Settings)->GetFunction());
+void Init(Handle<Object> exports,
+          Local<Value> module,
+          void* priv) {
+    WrapTrader::Init(0);
+    WrapMdUser::Init(0);
+
+    NODE_SET_METHOD(exports,"createTrader",CreateTrader);
+    NODE_SET_METHOD(exports,"createMdUser",CreateMdUser);
+    NODE_SET_METHOD(exports,"settings",Settings);
 }
 
 NODE_MODULE(shifctp, Init)
