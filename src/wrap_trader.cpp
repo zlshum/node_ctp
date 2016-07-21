@@ -156,8 +156,7 @@ void WrapTrader::On(const FunctionCallbackInfo<Value>& args) {
         return;
     }
 
-    //zhangls thinkagain
-    //callback_map[eIt->second] = unRecoveryCb;    
+    callback_map[eIt->second] = unRecoveryCb;    
     obj->uvTrader->On(*eNameAscii,eIt->second, FunCallback);
     args.GetReturnValue().Set(Int32::New(isolate,0));
     return;
