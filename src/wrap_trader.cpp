@@ -136,8 +136,9 @@ void WrapTrader::On(const FunctionCallbackInfo<Value>& args) {
     
     Local<String> eventName = args[0]->ToString();
     Local<Function> cb = Local<Function>::Cast(args[1]);
-    Persistent<Function> unRecoveryCb = Persistent<Function>::New(cb);
-    String::AsciiValue eNameAscii(eventName);
+    Persistent<Function> unRecoveryCb;
+    unRecoveryCb.Reset(isolate,cb);
+    String::Utf8Value eNameAscii(eventName);
 
     std::map<const char*, int>::iterator eIt = event_map.find(*eNameAscii);
     if (eIt == event_map.end()) {
@@ -155,9 +156,10 @@ void WrapTrader::On(const FunctionCallbackInfo<Value>& args) {
         return;
     }
 
-    callback_map[eIt->second] = unRecoveryCb;    
+    //zhangls thinkagain
+    //callback_map[eIt->second] = unRecoveryCb;    
     obj->uvTrader->On(*eNameAscii,eIt->second, FunCallback);
-    args.GetReturnValue().Set(Int32::New(isolate,isolate,0));
+    args.GetReturnValue().Set(Int32::New(isolate,0));
     return;
 }
 
@@ -179,25 +181,24 @@ void WrapTrader::Connect(const FunctionCallbackInfo<Value>& args) {
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
     if (!args[4]->IsUndefined() && args[4]->IsFunction()) {
         uuid = ++s_uuid;
-        fun_rtncb_map[uuid] = Persistent<Function>::New(Local<Function>::Cast(args[4]));
+        fun_rtncb_map[uuid].Reset(isolate,Local<Function>::Cast(args[4]));
         std::string _head = std::string(log);
         logger_cout(_head.append(" uuid is ").append(to_string(uuid)).c_str());
     }
 
     Local<String> frontAddr = args[0]->ToString();
     Local<String> szPath = args[1]->IsUndefined() ? String::NewFromUtf8(isolate,"t") : args[0]->ToString();
-    String::AsciiValue addrAscii(frontAddr);
-    String::AsciiValue pathAscii(szPath);
+    String::Utf8Value addrAscii(frontAddr);
+    String::Utf8Value pathAscii(szPath);
     int publicTopicType = args[2]->Int32Value();
     int privateTopicType = args[3]->Int32Value();     
     
     UVConnectField pConnectField; 
     memset(&pConnectField, 0, sizeof(pConnectField));    
-    strcpy(pConnectField.front_addr, ((std::string)*addrAscii).c_str());
-    strcpy(pConnectField.szPath, ((std::string)*pathAscii).c_str());
+    strcpy(pConnectField.front_addr, *addrAscii);
+    strcpy(pConnectField.szPath, *pathAscii);
     pConnectField.public_topic_type = publicTopicType;
-    pConnectField.private_topic_type = privateTopicType;    
-    logger_cout(log.append(" ").append((std::string)*addrAscii).append("|").append((std::string)*pathAscii).append("|").append(to_string(publicTopicType)).append("|").append(to_string(privateTopicType)).c_str());
+    pConnectField.private_topic_type = privateTopicType;
     obj->uvTrader->Connect(&pConnectField, FunRtnCallback, uuid);
     args.GetReturnValue().Set(Undefined(isolate));
     return;
@@ -218,7 +219,7 @@ void WrapTrader::ReqUserLogin(const FunctionCallbackInfo<Value>& args) {
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
     if (!args[3]->IsUndefined() && args[3]->IsFunction()) {
         uuid = ++s_uuid;
-        fun_rtncb_map[uuid] = Persistent<Function>::New(Local<Function>::Cast(args[3]));
+        fun_rtncb_map[uuid].Reset(isolate,Local<Function>::Cast(args[3]));
         std::string _head = std::string(log);
         logger_cout(_head.append(" uuid is ").append(to_string(uuid)).c_str());
     }
@@ -226,16 +227,15 @@ void WrapTrader::ReqUserLogin(const FunctionCallbackInfo<Value>& args) {
     Local<String> broker = args[0]->ToString();
     Local<String> userId = args[1]->ToString();
     Local<String> pwd = args[2]->ToString();
-    String::AsciiValue brokerAscii(broker);
-    String::AsciiValue userIdAscii(userId);
-    String::AsciiValue pwdAscii(pwd);
+    String::Utf8Value brokerAscii(broker);
+    String::Utf8Value userIdAscii(userId);
+    String::Utf8Value pwdAscii(pwd);
 
     CThostFtdcReqUserLoginField req;
     memset(&req, 0, sizeof(req));
-    strcpy(req.BrokerID, ((std::string)*brokerAscii).c_str());
-    strcpy(req.UserID, ((std::string)*userIdAscii).c_str());
-    strcpy(req.Password, ((std::string)*pwdAscii).c_str());    
-    logger_cout(log.append(" ").append((std::string)*brokerAscii).append("|").append((std::string)*userIdAscii).append("|").append((std::string)*pwdAscii).c_str());
+    strcpy(req.BrokerID, *brokerAscii);
+    strcpy(req.UserID, *userIdAscii);
+    strcpy(req.Password, *pwdAscii);    
     obj->uvTrader->ReqUserLogin(&req, FunRtnCallback, uuid);
     args.GetReturnValue().Set(Undefined(isolate));
     return;
@@ -256,21 +256,20 @@ void WrapTrader::ReqUserLogout(const FunctionCallbackInfo<Value>& args) {
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
     if (!args[2]->IsUndefined() && args[2]->IsFunction()) {
         uuid = ++s_uuid;
-        fun_rtncb_map[uuid] = Persistent<Function>::New(Local<Function>::Cast(args[2]));
+        fun_rtncb_map[uuid].Reset(isolate,Local<Function>::Cast(args[2]));
         std::string _head = std::string(log);
         logger_cout(_head.append(" uuid is ").append(to_string(uuid)).c_str());
     }
 
     Local<String> broker = args[0]->ToString();
     Local<String> userId = args[1]->ToString();
-    String::AsciiValue brokerAscii(broker);
-    String::AsciiValue userIdAscii(userId);
+    String::Utf8Value brokerAscii(broker);
+    String::Utf8Value userIdAscii(userId);
 
     CThostFtdcUserLogoutField req;
     memset(&req, 0, sizeof(req));
-    strcpy(req.BrokerID, ((std::string)*brokerAscii).c_str());
-    strcpy(req.UserID, ((std::string)*userIdAscii).c_str());
-    logger_cout(log.append(" ").append((std::string)*brokerAscii).append("|").append((std::string)*userIdAscii).c_str());
+    strcpy(req.BrokerID, *brokerAscii);
+    strcpy(req.UserID, *userIdAscii);
     obj->uvTrader->ReqUserLogout(&req, FunRtnCallback, uuid);
     args.GetReturnValue().Set(Undefined(isolate));
     return;
@@ -291,21 +290,20 @@ void WrapTrader::ReqSettlementInfoConfirm(const FunctionCallbackInfo<Value>& arg
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
     if (!args[2]->IsUndefined() && args[2]->IsFunction()) {
         uuid = ++s_uuid;
-        fun_rtncb_map[uuid] = Persistent<Function>::New(Local<Function>::Cast(args[2]));
+        fun_rtncb_map[uuid].Reset(isolate,Local<Function>::Cast(args[2]));
         std::string _head = std::string(log);
         logger_cout(_head.append(" uuid is ").append(to_string(uuid)).c_str());
     }     
 
     Local<String> broker = args[0]->ToString();
     Local<String> investorId = args[1]->ToString();
-    String::AsciiValue brokerAscii(broker);
-    String::AsciiValue investorIdAscii(investorId);
+    String::Utf8Value brokerAscii(broker);
+    String::Utf8Value investorIdAscii(investorId);
 
     CThostFtdcSettlementInfoConfirmField req;
     memset(&req, 0, sizeof(req));
-    strcpy(req.BrokerID, ((std::string)*brokerAscii).c_str());
-    strcpy(req.InvestorID, ((std::string)*investorIdAscii).c_str());
-    logger_cout(log.append(" ").append((std::string)*brokerAscii).append("|").append((std::string)*investorIdAscii).c_str());
+    strcpy(req.BrokerID, *brokerAscii);
+    strcpy(req.InvestorID, *investorIdAscii);
     obj->uvTrader->ReqSettlementInfoConfirm(&req, FunRtnCallback, uuid);
     args.GetReturnValue().Set(Undefined(isolate));
     return;
@@ -326,18 +324,17 @@ void WrapTrader::ReqQryInstrument(const FunctionCallbackInfo<Value>& args) {
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
     if (!args[1]->IsUndefined() && args[1]->IsFunction()) {
         uuid = ++s_uuid;
-        fun_rtncb_map[uuid] = Persistent<Function>::New(Local<Function>::Cast(args[1]));
+        fun_rtncb_map[uuid].Reset(isolate, Local<Function>::Cast(args[1]));
         std::string _head = std::string(log);
         logger_cout(_head.append(" uuid is ").append(to_string(uuid)).c_str());
     }
 
     Local<String> instrumentId = args[0]->ToString();
-    String::AsciiValue instrumentIdAscii(instrumentId);
+    String::Utf8Value instrumentIdAscii(instrumentId);
 
     CThostFtdcQryInstrumentField req;
     memset(&req, 0, sizeof(req));
-    strcpy(req.InstrumentID, ((std::string)*instrumentIdAscii).c_str());
-    logger_cout(log.append(" ").append((std::string)*instrumentIdAscii).c_str());
+    strcpy(req.InstrumentID, *instrumentIdAscii);
     obj->uvTrader->ReqQryInstrument(&req, FunRtnCallback, uuid);
     args.GetReturnValue().Set(Undefined(isolate));
     return;
@@ -358,20 +355,19 @@ void WrapTrader::ReqQryTradingAccount(const FunctionCallbackInfo<Value>& args) {
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
     if (!args[2]->IsUndefined() && args[2]->IsFunction()) {
         uuid = ++s_uuid;
-        fun_rtncb_map[uuid] = Persistent<Function>::New(Local<Function>::Cast(args[2]));
+        fun_rtncb_map[uuid].Reset(isolate,Local<Function>::Cast(args[2]));
         std::string _head = std::string(log);
         logger_cout(_head.append(" uuid is ").append(to_string(uuid)).c_str());
     }
     Local<String> broker = args[0]->ToString();
     Local<String> investorId = args[1]->ToString();
-    String::AsciiValue brokerAscii(broker);
-    String::AsciiValue investorIdAscii(investorId);
+    String::Utf8Value brokerAscii(broker);
+    String::Utf8Value investorIdAscii(investorId);
 
     CThostFtdcQryTradingAccountField req;
     memset(&req, 0, sizeof(req));
-    strcpy(req.BrokerID, ((std::string)*brokerAscii).c_str());
-    strcpy(req.InvestorID, ((std::string)*investorIdAscii).c_str());
-    logger_cout(log.append(" ").append((std::string)*brokerAscii).append("|").append((std::string)*investorIdAscii).c_str());
+    strcpy(req.BrokerID, *brokerAscii);
+    strcpy(req.InvestorID, *investorIdAscii);
     obj->uvTrader->ReqQryTradingAccount(&req, FunRtnCallback, uuid);
     args.GetReturnValue().Set(Undefined(isolate));
     return;
@@ -392,16 +388,16 @@ void WrapTrader::ReqQryInvestorPosition(const FunctionCallbackInfo<Value>& args)
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
     if (!args[3]->IsUndefined() && args[3]->IsFunction()) {
     uuid = ++s_uuid;
-    fun_rtncb_map[uuid] = Persistent<Function>::New(Local<Function>::Cast(args[3]));
+    fun_rtncb_map[uuid].Reset(isolate, Local<Function>::Cast(args[3]));
     std::string _head = std::string(log);
     logger_cout(_head.append(" uuid is ").append(to_string(uuid)).c_str());
     }
     Local<String> broker = args[0]->ToString();
     Local<String> investorId = args[1]->ToString();
     Local<String> instrumentId = args[2]->ToString();
-    String::AsciiValue brokerAscii(broker);
-    String::AsciiValue investorIdAscii(investorId);
-    String::AsciiValue instrumentIdAscii(instrumentId);
+    String::Utf8Value brokerAscii(broker);
+    String::Utf8Value investorIdAscii(investorId);
+    String::Utf8Value instrumentIdAscii(instrumentId);
 
     CThostFtdcQryInvestorPositionField req;
     memset(&req, 0, sizeof(req));
@@ -430,16 +426,16 @@ void WrapTrader::ReqQryInvestorPositionDetail(const FunctionCallbackInfo<Value>&
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
     if (!args[3]->IsUndefined() && args[3]->IsFunction()) {
         uuid = ++s_uuid;
-        fun_rtncb_map[uuid] = Persistent<Function>::New(Local<Function>::Cast(args[3]));
+        fun_rtncb_map[uuid].Reset(isolate, Local<Function>::Cast(args[3]));
         std::string _head = std::string(log);
         logger_cout(_head.append(" uuid is ").append(to_string(uuid)).c_str());
     }
     Local<String> broker = args[0]->ToString();
     Local<String> investorId = args[1]->ToString();
     Local<String> instrumentId = args[2]->ToString();
-    String::AsciiValue brokerAscii(broker);
-    String::AsciiValue investorIdAscii(investorId);
-    String::AsciiValue instrumentIdAscii(instrumentId);
+    String::Utf8Value brokerAscii(broker);
+    String::Utf8Value investorIdAscii(investorId);
+    String::Utf8Value instrumentIdAscii(instrumentId);
 
     CThostFtdcQryInvestorPositionDetailField req;
     memset(&req, 0, sizeof(req));
@@ -468,7 +464,7 @@ void WrapTrader::ReqOrderInsert(const FunctionCallbackInfo<Value>& args) {
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
     if (!args[1]->IsUndefined() && args[1]->IsFunction()) {
         uuid = ++s_uuid;
-        fun_rtncb_map[uuid] = Persistent<Function>::New(Local<Function>::Cast(args[1]));
+        fun_rtncb_map[uuid].Reset(isolate, Local<Function>::Cast(args[1]));
         std::string _head = std::string(log);
         logger_cout(_head.append(" uuid is ").append(to_string(uuid)).c_str());
     }
@@ -479,49 +475,49 @@ void WrapTrader::ReqOrderInsert(const FunctionCallbackInfo<Value>& args) {
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
-    String::AsciiValue brokerId_(brokerId->ToString());
+    String::Utf8Value brokerId_(brokerId->ToString());
     Local<Value> investorId = jsonObj->Get(v8::String::NewFromUtf8(isolate,"investorId"));
     if (investorId->IsUndefined()) {
         isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->investorId")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
-    String::AsciiValue investorId_(investorId->ToString());
+    String::Utf8Value investorId_(investorId->ToString());
     Local<Value> instrumentId = jsonObj->Get(v8::String::NewFromUtf8(isolate,"instrumentId"));
     if (instrumentId->IsUndefined()) {
         isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->instrumentId")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
-    String::AsciiValue instrumentId_(instrumentId->ToString());
+    String::Utf8Value instrumentId_(instrumentId->ToString());
     Local<Value> priceType = jsonObj->Get(v8::String::NewFromUtf8(isolate,"priceType"));
     if (priceType->IsUndefined()) {
         isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->priceType")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
-    String::AsciiValue priceType_(priceType->ToString());
+    String::Utf8Value priceType_(priceType->ToString());
     Local<Value> direction = jsonObj->Get(v8::String::NewFromUtf8(isolate,"direction"));
     if (direction->IsUndefined()) {
         isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->direction")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
-    String::AsciiValue direction_(direction->ToString());
+    String::Utf8Value direction_(direction->ToString());
     Local<Value> combOffsetFlag = jsonObj->Get(v8::String::NewFromUtf8(isolate,"combOffsetFlag"));
     if (combOffsetFlag->IsUndefined()) {
         isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->combOffsetFlag")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
-    String::AsciiValue combOffsetFlag_(combOffsetFlag->ToString());
+    String::Utf8Value combOffsetFlag_(combOffsetFlag->ToString());
     Local<Value> combHedgeFlag = jsonObj->Get(v8::String::NewFromUtf8(isolate,"combHedgeFlag"));
     if (combHedgeFlag->IsUndefined()) {
         isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->combHedgeFlag")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
-    String::AsciiValue combHedgeFlag_(combHedgeFlag->ToString());
+    String::Utf8Value combHedgeFlag_(combHedgeFlag->ToString());
     Local<Value> vlimitPrice = jsonObj->Get(v8::String::NewFromUtf8(isolate,"limitPrice"));
     if (vlimitPrice->IsUndefined()) {
         isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->limitPrice")));
@@ -542,14 +538,14 @@ void WrapTrader::ReqOrderInsert(const FunctionCallbackInfo<Value>& args) {
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
-    String::AsciiValue timeCondition_(timeCondition->ToString());
+    String::Utf8Value timeCondition_(timeCondition->ToString());
     Local<Value> volumeCondition = jsonObj->Get(v8::String::NewFromUtf8(isolate,"volumeCondition"));
     if (volumeCondition->IsUndefined()) {
         isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->volumeCondition")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
-    String::AsciiValue volumeCondition_(volumeCondition->ToString());
+    String::Utf8Value volumeCondition_(volumeCondition->ToString());
     Local<Value> vminVolume = jsonObj->Get(v8::String::NewFromUtf8(isolate,"minVolume"));
     if (vminVolume->IsUndefined()) {
         isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->minVolume")));
@@ -563,7 +559,7 @@ void WrapTrader::ReqOrderInsert(const FunctionCallbackInfo<Value>& args) {
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
-    String::AsciiValue forceCloseReason_(forceCloseReason->ToString());
+    String::Utf8Value forceCloseReason_(forceCloseReason->ToString());
     Local<Value> visAutoSuspend = jsonObj->Get(v8::String::NewFromUtf8(isolate,"isAutoSuspend"));
     if (visAutoSuspend->IsUndefined()) {
         isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->isAutoSuspend")));
@@ -585,7 +581,7 @@ void WrapTrader::ReqOrderInsert(const FunctionCallbackInfo<Value>& args) {
 
     Local<Value> orderRef = jsonObj->Get(v8::String::NewFromUtf8(isolate,"orderRef"));
     if (!orderRef->IsUndefined()) {
-        String::AsciiValue orderRef_(orderRef->ToString());
+        String::Utf8Value orderRef_(orderRef->ToString());
         strcpy(req.OrderRef, ((std::string)*orderRef_).c_str());  
         log.append("orderRef:").append((std::string)*orderRef_).append("|");
     }
@@ -598,7 +594,7 @@ void WrapTrader::ReqOrderInsert(const FunctionCallbackInfo<Value>& args) {
     }
     Local<Value> contingentCondition = jsonObj->Get(v8::String::NewFromUtf8(isolate,"contingentCondition"));
     if (!contingentCondition->IsUndefined()) {
-        String::AsciiValue contingentCondition_(contingentCondition->ToString());
+        String::Utf8Value contingentCondition_(contingentCondition->ToString());
         req.ContingentCondition = ((std::string)*contingentCondition_)[0];
         log.append("contingentCondition:").append((std::string)*contingentCondition_).append("|");
     }
@@ -655,7 +651,7 @@ void WrapTrader::ReqOrderAction(const FunctionCallbackInfo<Value>& args) {
 
     if (!args[1]->IsUndefined() && args[1]->IsFunction()) {
         uuid = ++s_uuid;
-        fun_rtncb_map[uuid] = Persistent<Function>::New(Local<Function>::Cast(args[1]));
+        fun_rtncb_map[uuid].Reset(isolate, Local<Function>::Cast(args[1]));
         std::string _head = std::string(log);
         logger_cout(_head.append(" uuid is ").append(to_string(uuid)).c_str());
     }
@@ -667,21 +663,21 @@ void WrapTrader::ReqOrderAction(const FunctionCallbackInfo<Value>& args) {
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
-    String::AsciiValue brokerId_(vbrokerId->ToString());
+    String::Utf8Value brokerId_(vbrokerId->ToString());
     Local<Value> vinvestorId = jsonObj->Get(v8::String::NewFromUtf8(isolate,"investorId"));
     if (vinvestorId->IsUndefined()) {
         isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->investorId")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
-    String::AsciiValue investorId_(vinvestorId->ToString());
+    String::Utf8Value investorId_(vinvestorId->ToString());
     Local<Value> vinstrumentId = jsonObj->Get(v8::String::NewFromUtf8(isolate,"instrumentId"));
     if (vinstrumentId->IsUndefined()) {
         isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->instrumentId")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
-    String::AsciiValue instrumentId_(vinstrumentId->ToString());
+    String::Utf8Value instrumentId_(vinstrumentId->ToString());
     Local<Value> vactionFlag = jsonObj->Get(v8::String::NewFromUtf8(isolate,"actionFlag"));
     if (vactionFlag->IsUndefined()) {
         isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->actionFlag")));
@@ -696,7 +692,7 @@ void WrapTrader::ReqOrderAction(const FunctionCallbackInfo<Value>& args) {
     log.append(" ");
     Local<Value> vorderRef = jsonObj->Get(v8::String::NewFromUtf8(isolate,"orderRef"));
     if (!vorderRef->IsUndefined()) {
-        String::AsciiValue orderRef_(vorderRef->ToString());
+        String::Utf8Value orderRef_(vorderRef->ToString());
         strcpy(req.OrderRef, ((std::string)*orderRef_).c_str());
         log.append((std::string)*orderRef_).append("|");
     }
@@ -714,13 +710,13 @@ void WrapTrader::ReqOrderAction(const FunctionCallbackInfo<Value>& args) {
     }
     Local<Value> vexchangeID = jsonObj->Get(v8::String::NewFromUtf8(isolate,"exchangeID"));
     if (!vexchangeID->IsUndefined()) {
-        String::AsciiValue exchangeID_(vexchangeID->ToString());
+        String::Utf8Value exchangeID_(vexchangeID->ToString());
         strcpy(req.ExchangeID, ((std::string)*exchangeID_).c_str());
         log.append((std::string)*exchangeID_).append("|");
     }
     Local<Value> vorderSysID = jsonObj->Get(v8::String::NewFromUtf8(isolate,"orderSysID"));
     if (vorderSysID->IsUndefined()) {
-        String::AsciiValue orderSysID_(vorderSysID->ToString());
+        String::Utf8Value orderSysID_(vorderSysID->ToString());
         strcpy(req.OrderSysID, ((std::string)*orderSysID_).c_str());
         log.append((std::string)*orderSysID_).append("|");
     }
@@ -745,10 +741,10 @@ void WrapTrader::ReqQryInstrumentMarginRate(const FunctionCallbackInfo<Value>& a
     std::string log = "wrap_trader ReqQryInstrumentMarginRate------>";
 
     if (args[0]->IsUndefined() || args[1]->IsUndefined() || args[2]->IsUndefined() || args[3]->IsUndefined()) {
-    std::string _head = std::string(log);
-    logger_cout(_head.append(" Wrong FunctionCallbackInfo<Value>").c_str());
-    isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>")));
-            args.GetReturnValue().Set(Undefined(isolate));
+        std::string _head = std::string(log);
+        logger_cout(_head.append(" Wrong FunctionCallbackInfo<Value>").c_str());
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>")));
+        args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
     int uuid = -1;
@@ -756,7 +752,7 @@ void WrapTrader::ReqQryInstrumentMarginRate(const FunctionCallbackInfo<Value>& a
 
     if (!args[4]->IsUndefined() && args[4]->IsFunction()) {
     uuid = ++s_uuid;
-    fun_rtncb_map[uuid] = Persistent<Function>::New(Local<Function>::Cast(args[4]));
+    fun_rtncb_map[uuid].Reset(isolate,Local<Function>::Cast(args[4]));
     std::string _head = std::string(log);
     logger_cout(_head.append(" uuid is ").append(to_string(uuid)).c_str());
     }
@@ -765,9 +761,9 @@ void WrapTrader::ReqQryInstrumentMarginRate(const FunctionCallbackInfo<Value>& a
     Local<String> investorId = args[1]->ToString();
     Local<String> instrumentId = args[2]->ToString();
     int32_t hedgeFlag = args[3]->Int32Value();
-    String::AsciiValue brokerAscii(broker);
-    String::AsciiValue investorIdAscii(investorId);
-    String::AsciiValue instrumentIdAscii(instrumentId);
+    String::Utf8Value brokerAscii(broker);
+    String::Utf8Value investorIdAscii(investorId);
+    String::Utf8Value instrumentIdAscii(instrumentId);
 
     CThostFtdcQryInstrumentMarginRateField req;
     memset(&req, 0, sizeof(req));
@@ -801,13 +797,13 @@ void WrapTrader::ReqQryDepthMarketData(const FunctionCallbackInfo<Value>& args) 
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
     if (!args[1]->IsUndefined() && args[1]->IsFunction()) {
         uuid = ++s_uuid;
-        fun_rtncb_map[uuid] = Persistent<Function>::New(Local<Function>::Cast(args[1]));
+        fun_rtncb_map[uuid].Reset(isolate, Local<Function>::Cast(args[1]));
         std::string _head = std::string(log);
         logger_cout(_head.append(" uuid is ").append(to_string(uuid)).c_str());
     }
 
     Local<String> instrumentId = args[0]->ToString();
-    String::AsciiValue instrumentIdAscii(instrumentId);
+    String::Utf8Value instrumentIdAscii(instrumentId);
 
     CThostFtdcQryDepthMarketDataField req;
     memset(&req, 0, sizeof(req));
@@ -834,7 +830,7 @@ void WrapTrader::ReqQrySettlementInfo(const FunctionCallbackInfo<Value>& args) {
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
     if (!args[3]->IsUndefined() && args[3]->IsFunction()) {
     uuid = ++s_uuid;
-    fun_rtncb_map[uuid] = Persistent<Function>::New(Local<Function>::Cast(args[3]));
+    fun_rtncb_map[uuid].Reset(isolate,Local<Function>::Cast(args[3]));
     std::string _head = std::string(log);
     logger_cout(_head.append(" uuid is ").append(to_string(uuid)).c_str());
     }
@@ -842,9 +838,9 @@ void WrapTrader::ReqQrySettlementInfo(const FunctionCallbackInfo<Value>& args) {
     Local<String> broker = args[0]->ToString();
     Local<String> investorId = args[1]->ToString();
     Local<String> tradingDay = args[2]->ToString();
-    String::AsciiValue brokerAscii(broker);
-    String::AsciiValue investorIdAscii(investorId);
-    String::AsciiValue tradingDayAscii(tradingDay);
+    String::Utf8Value brokerAscii(broker);
+    String::Utf8Value investorIdAscii(investorId);
+    String::Utf8Value tradingDayAscii(tradingDay);
 
     CThostFtdcQrySettlementInfoField req;
     memset(&req, 0, sizeof(req));
@@ -867,7 +863,8 @@ void WrapTrader::Disposed(const FunctionCallbackInfo<Value>& args) {
     obj->uvTrader->Disconnect();    
     std::map<int, Persistent<Function> >::iterator callback_it = callback_map.begin();
     while (callback_it != callback_map.end()) {
-    callback_it->second.Dispose();
+    //zhangls thinkagain
+    //callback_it->second.Dispose();
     callback_it++;
     }
     event_map.clear();
@@ -884,7 +881,9 @@ void WrapTrader::GetTradingDay(const FunctionCallbackInfo<Value>& args){
     Isolate* isolate = args.GetIsolate();
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
     const char* tradingDay = obj->uvTrader->GetTradingDay();
-    return scope.Close(String::NewFromUtf8(isolate,tradingDay));
+    //zhangls thinkagain
+    //args.GetReturnValue().Set(isolate,String::NewFromUtf8(isolate,tradingDay));
+    return;
 }
 
 void WrapTrader::FunCallback(CbRtnField *data) {
@@ -892,6 +891,8 @@ void WrapTrader::FunCallback(CbRtnField *data) {
     if (cIt == callback_map.end())
     return;
 
+//zhangls thinkagain
+/*
     switch (data->eFlag) {
     case T_ON_CONNECT:
     {
@@ -1042,19 +1043,21 @@ void WrapTrader::FunCallback(CbRtnField *data) {
                break;
     }
     }
+*/
 }
 
 void WrapTrader::FunRtnCallback(int result, void* baton) {
-    Isolate* isolate = args.GetIsolate();
     LookupCtpApiBaton* tmp = static_cast<LookupCtpApiBaton*>(baton);     
     if (tmp->uuid != -1) {
     std::map<int, Persistent<Function> >::iterator it = fun_rtncb_map.find(tmp->uuid);
     Local<Value> argv[2] = { Local<Value>::New(isolate,Int32::New(isolate,tmp->nResult)),Local<Value>::New(isolate,Int32::New(isolate,tmp->iRequestID)) };
+    //zhangls thinkagain
+/*
     it->second->Call(Context::GetCurrent()->Global(), 2, argv);
     it->second.Dispose();
+*/
     fun_rtncb_map.erase(tmp->uuid);          
     }
-    scope.Close(Undefined(isolate));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1136,14 +1139,14 @@ void WrapTrader::pkg_cb_orderinsert(CbRtnField* data, Local<Value>*cbArray) {
     jsonRtn->Set(String::NewFromUtf8(isolate,"Direction"), String::NewFromUtf8(isolate,charto_string(pInputOrder->Direction).c_str()));  //var charval = String.fromCharCode(asciival);
     jsonRtn->Set(String::NewFromUtf8(isolate,"CombOffsetFlag"), String::NewFromUtf8(isolate,pInputOrder->CombOffsetFlag));
     jsonRtn->Set(String::NewFromUtf8(isolate,"CombHedgeFlag"), String::NewFromUtf8(isolate,pInputOrder->CombHedgeFlag));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"LimitPrice"), Number::New(pInputOrder->LimitPrice));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"LimitPrice"), Number::New(isolate,pInputOrder->LimitPrice));
     jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeTotalOriginal"), Int32::New(isolate,pInputOrder->VolumeTotalOriginal));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TimeCondition"), String::NewFromUtf8(isolate,charto_string(pInputOrder->TimeCondition).c_str()));
     jsonRtn->Set(String::NewFromUtf8(isolate,"GTDDate"), String::NewFromUtf8(isolate,pInputOrder->GTDDate));
     jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeCondition"), String::NewFromUtf8(isolate,charto_string(pInputOrder->VolumeCondition).c_str()));
     jsonRtn->Set(String::NewFromUtf8(isolate,"MinVolume"), Int32::New(isolate,pInputOrder->MinVolume));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ContingentCondition"), String::NewFromUtf8(isolate,charto_string(pInputOrder->ContingentCondition).c_str()));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"StopPrice"), Number::New(pInputOrder->StopPrice));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"StopPrice"), Number::New(isolate,pInputOrder->StopPrice));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ForceCloseReason"), String::NewFromUtf8(isolate,charto_string(pInputOrder->ForceCloseReason).c_str()));
     jsonRtn->Set(String::NewFromUtf8(isolate,"IsAutoSuspend"), Int32::New(isolate,pInputOrder->IsAutoSuspend));
     jsonRtn->Set(String::NewFromUtf8(isolate,"BusinessUnit"), String::NewFromUtf8(isolate,pInputOrder->BusinessUnit));
@@ -1171,14 +1174,14 @@ void WrapTrader::pkg_cb_errorderinsert(CbRtnField* data, Local<Value>*cbArray) {
     jsonRtn->Set(String::NewFromUtf8(isolate,"Direction"), String::NewFromUtf8(isolate,charto_string(pInputOrder->Direction).c_str()));  //var charval = String.fromCharCode(asciival);
     jsonRtn->Set(String::NewFromUtf8(isolate,"CombOffsetFlag"), String::NewFromUtf8(isolate,pInputOrder->CombOffsetFlag));
     jsonRtn->Set(String::NewFromUtf8(isolate,"CombHedgeFlag"), String::NewFromUtf8(isolate,pInputOrder->CombHedgeFlag));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"LimitPrice"), Number::New(pInputOrder->LimitPrice));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"LimitPrice"), Number::New(isolate,pInputOrder->LimitPrice));
     jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeTotalOriginal"), Int32::New(isolate,pInputOrder->VolumeTotalOriginal));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TimeCondition"), String::NewFromUtf8(isolate,charto_string(pInputOrder->TimeCondition).c_str()));
     jsonRtn->Set(String::NewFromUtf8(isolate,"GTDDate"), String::NewFromUtf8(isolate,pInputOrder->GTDDate));
     jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeCondition"), String::NewFromUtf8(isolate,charto_string(pInputOrder->VolumeCondition).c_str()));
     jsonRtn->Set(String::NewFromUtf8(isolate,"MinVolume"), Int32::New(isolate,pInputOrder->MinVolume));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ContingentCondition"), String::NewFromUtf8(isolate,charto_string(pInputOrder->ContingentCondition).c_str()));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"StopPrice"), Number::New(pInputOrder->StopPrice));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"StopPrice"), Number::New(isolate,pInputOrder->StopPrice));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ForceCloseReason"), String::NewFromUtf8(isolate,charto_string(pInputOrder->ForceCloseReason).c_str()));
     jsonRtn->Set(String::NewFromUtf8(isolate,"IsAutoSuspend"), Int32::New(isolate,pInputOrder->IsAutoSuspend));
     jsonRtn->Set(String::NewFromUtf8(isolate,"BusinessUnit"), String::NewFromUtf8(isolate,pInputOrder->BusinessUnit));
@@ -1209,7 +1212,7 @@ void WrapTrader::pkg_cb_orderaction(CbRtnField* data, Local<Value>*cbArray) {
     jsonRtn->Set(String::NewFromUtf8(isolate,"ExchangeID"), String::NewFromUtf8(isolate,pInputOrderAction->ExchangeID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"OrderSysID"), String::NewFromUtf8(isolate,pInputOrderAction->OrderSysID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ActionFlag"), String::NewFromUtf8(isolate,charto_string(pInputOrderAction->ActionFlag).c_str()));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"LimitPrice"), Number::New(pInputOrderAction->LimitPrice));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"LimitPrice"), Number::New(isolate,pInputOrderAction->LimitPrice));
     jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeChange"), Int32::New(isolate,pInputOrderAction->VolumeChange));
     jsonRtn->Set(String::NewFromUtf8(isolate,"UserID"), String::NewFromUtf8(isolate,pInputOrderAction->UserID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"InstrumentID"), String::NewFromUtf8(isolate,pInputOrderAction->InstrumentID));
@@ -1235,7 +1238,7 @@ void WrapTrader::pkg_cb_errorderaction(CbRtnField* data, Local<Value>*cbArray) {
     jsonRtn->Set(String::NewFromUtf8(isolate,"ExchangeID"), String::NewFromUtf8(isolate,pOrderAction->ExchangeID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"OrderSysID"), String::NewFromUtf8(isolate,pOrderAction->OrderSysID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ActionFlag"), String::NewFromUtf8(isolate,charto_string(pOrderAction->ActionFlag).c_str()));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"LimitPrice"), Number::New(pOrderAction->LimitPrice));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"LimitPrice"), Number::New(isolate,pOrderAction->LimitPrice));
     jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeChange"), Int32::New(isolate,pOrderAction->VolumeChange));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ActionDate"), String::NewFromUtf8(isolate,pOrderAction->ActionDate));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TraderID"), String::NewFromUtf8(isolate,pOrderAction->TraderID));
@@ -1272,14 +1275,14 @@ void WrapTrader::pkg_cb_rspqryorder(CbRtnField* data, Local<Value>*cbArray) {
     jsonRtn->Set(String::NewFromUtf8(isolate,"Direction"), String::NewFromUtf8(isolate,charto_string(pOrder->Direction).c_str()));  //var charval = String.fromCharCode(asciival);
     jsonRtn->Set(String::NewFromUtf8(isolate,"CombOffsetFlag"), String::NewFromUtf8(isolate,pOrder->CombOffsetFlag));
     jsonRtn->Set(String::NewFromUtf8(isolate,"CombHedgeFlag"), String::NewFromUtf8(isolate,pOrder->CombHedgeFlag));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"LimitPrice"), Number::New(pOrder->LimitPrice));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"LimitPrice"), Number::New(isolate,pOrder->LimitPrice));
     jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeTotalOriginal"), Int32::New(isolate,pOrder->VolumeTotalOriginal));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TimeCondition"), String::NewFromUtf8(isolate,charto_string(pOrder->TimeCondition).c_str()));
     jsonRtn->Set(String::NewFromUtf8(isolate,"GTDDate"), String::NewFromUtf8(isolate,pOrder->GTDDate));
     jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeCondition"), String::NewFromUtf8(isolate,charto_string(pOrder->VolumeCondition).c_str()));
     jsonRtn->Set(String::NewFromUtf8(isolate,"MinVolume"), Int32::New(isolate,pOrder->MinVolume));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ContingentCondition"), String::NewFromUtf8(isolate,charto_string(pOrder->ContingentCondition).c_str()));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"StopPrice"), Number::New(pOrder->StopPrice));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"StopPrice"), Number::New(isolate,pOrder->StopPrice));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ForceCloseReason"), String::NewFromUtf8(isolate,charto_string(pOrder->ForceCloseReason).c_str()));
     jsonRtn->Set(String::NewFromUtf8(isolate,"IsAutoSuspend"), Int32::New(isolate,pOrder->IsAutoSuspend));
     jsonRtn->Set(String::NewFromUtf8(isolate,"BusinessUnit"), String::NewFromUtf8(isolate,pOrder->BusinessUnit));
@@ -1341,14 +1344,14 @@ void WrapTrader::pkg_cb_rtnorder(CbRtnField* data, Local<Value>*cbArray) {
     jsonRtn->Set(String::NewFromUtf8(isolate,"Direction"), String::NewFromUtf8(isolate,charto_string(pOrder->Direction).c_str()));  //var charval = String.fromCharCode(asciival);
     jsonRtn->Set(String::NewFromUtf8(isolate,"CombOffsetFlag"), String::NewFromUtf8(isolate,pOrder->CombOffsetFlag));
     jsonRtn->Set(String::NewFromUtf8(isolate,"CombHedgeFlag"), String::NewFromUtf8(isolate,pOrder->CombHedgeFlag));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"LimitPrice"), Number::New(pOrder->LimitPrice));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"LimitPrice"), Number::New(isolate,pOrder->LimitPrice));
     jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeTotalOriginal"), Int32::New(isolate,pOrder->VolumeTotalOriginal));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TimeCondition"), String::NewFromUtf8(isolate,charto_string(pOrder->TimeCondition).c_str()));
     jsonRtn->Set(String::NewFromUtf8(isolate,"GTDDate"), String::NewFromUtf8(isolate,pOrder->GTDDate));
     jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeCondition"), String::NewFromUtf8(isolate,charto_string(pOrder->VolumeCondition).c_str()));
     jsonRtn->Set(String::NewFromUtf8(isolate,"MinVolume"), Int32::New(isolate,pOrder->MinVolume));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ContingentCondition"), String::NewFromUtf8(isolate,charto_string(pOrder->ContingentCondition).c_str()));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"StopPrice"), Number::New(pOrder->StopPrice));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"StopPrice"), Number::New(isolate,pOrder->StopPrice));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ForceCloseReason"), String::NewFromUtf8(isolate,charto_string(pOrder->ForceCloseReason).c_str()));
     jsonRtn->Set(String::NewFromUtf8(isolate,"IsAutoSuspend"), Int32::New(isolate,pOrder->IsAutoSuspend));
     jsonRtn->Set(String::NewFromUtf8(isolate,"BusinessUnit"), String::NewFromUtf8(isolate,pOrder->BusinessUnit));
@@ -1417,7 +1420,7 @@ void WrapTrader::pkg_cb_rqtrade(CbRtnField* data, Local<Value>*cbArray) {
     jsonRtn->Set(String::NewFromUtf8(isolate,"ExchangeInstID"), String::NewFromUtf8(isolate,pTrade->ExchangeInstID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"OffsetFlag"), String::NewFromUtf8(isolate,charto_string(pTrade->OffsetFlag).c_str()));
     jsonRtn->Set(String::NewFromUtf8(isolate,"HedgeFlag"), String::NewFromUtf8(isolate,charto_string(pTrade->HedgeFlag).c_str()));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"Price"), Number::New(pTrade->Price));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"Price"), Number::New(isolate,pTrade->Price));
     jsonRtn->Set(String::NewFromUtf8(isolate,"Volume"), Int32::New(isolate,pTrade->Volume));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TradeDate"), String::NewFromUtf8(isolate,pTrade->TradeDate));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TradeTime"), String::NewFromUtf8(isolate,pTrade->TradeTime));
@@ -1459,7 +1462,7 @@ void WrapTrader::pkg_cb_rtntrade(CbRtnField* data, Local<Value>*cbArray) {
     jsonRtn->Set(String::NewFromUtf8(isolate,"ExchangeInstID"), String::NewFromUtf8(isolate,pTrade->ExchangeInstID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"OffsetFlag"), Int32::New(isolate,pTrade->OffsetFlag));
     jsonRtn->Set(String::NewFromUtf8(isolate,"HedgeFlag"), Int32::New(isolate,pTrade->HedgeFlag));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"Price"), Number::New(pTrade->Price));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"Price"), Number::New(isolate,pTrade->Price));
     jsonRtn->Set(String::NewFromUtf8(isolate,"Volume"), Int32::New(isolate,pTrade->Volume));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TradeDate"), String::NewFromUtf8(isolate,pTrade->TradeDate));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TradeTime"), String::NewFromUtf8(isolate,pTrade->TradeTime));
@@ -1498,36 +1501,36 @@ void WrapTrader::pkg_cb_rqinvestorposition(CbRtnField* data, Local<Value>*cbArra
     jsonRtn->Set(String::NewFromUtf8(isolate,"Position"), Int32::New(isolate,_pInvestorPosition->Position));
     jsonRtn->Set(String::NewFromUtf8(isolate,"LongFrozen"), Int32::New(isolate,_pInvestorPosition->LongFrozen));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ShortFrozen"), Int32::New(isolate,_pInvestorPosition->ShortFrozen));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"LongFrozenAmount"), Number::New(_pInvestorPosition->LongFrozenAmount));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"ShortFrozenAmount"), Number::New(_pInvestorPosition->ShortFrozenAmount));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"LongFrozenAmount"), Number::New(isolate,_pInvestorPosition->LongFrozenAmount));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"ShortFrozenAmount"), Number::New(isolate,_pInvestorPosition->ShortFrozenAmount));
     jsonRtn->Set(String::NewFromUtf8(isolate,"OpenVolume"), Int32::New(isolate,_pInvestorPosition->OpenVolume));
     jsonRtn->Set(String::NewFromUtf8(isolate,"CloseVolume"), Int32::New(isolate,_pInvestorPosition->CloseVolume));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"OpenAmount"), Number::New(_pInvestorPosition->OpenAmount));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"CloseAmount"), Number::New(_pInvestorPosition->CloseAmount));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"PositionCost"), Number::New(_pInvestorPosition->PositionCost));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"PreMargin"), Number::New(_pInvestorPosition->PreMargin));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"UseMargin"), Number::New(_pInvestorPosition->UseMargin));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"FrozenMargin"), Number::New(_pInvestorPosition->FrozenMargin));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"FrozenCash"), Number::New(_pInvestorPosition->FrozenCash));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"FrozenCommission"), Number::New(_pInvestorPosition->FrozenCommission));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"CashIn"), Number::New(_pInvestorPosition->CashIn));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"Commission"), Number::New(_pInvestorPosition->Commission));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"CloseProfit"), Number::New(_pInvestorPosition->CloseProfit));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"PositionProfit"), Number::New(_pInvestorPosition->PositionProfit));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"PreSettlementPrice"), Number::New(_pInvestorPosition->PreSettlementPrice));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"SettlementPrice"), Number::New(_pInvestorPosition->SettlementPrice));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"OpenAmount"), Number::New(isolate,_pInvestorPosition->OpenAmount));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"CloseAmount"), Number::New(isolate,_pInvestorPosition->CloseAmount));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"PositionCost"), Number::New(isolate,_pInvestorPosition->PositionCost));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"PreMargin"), Number::New(isolate,_pInvestorPosition->PreMargin));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"UseMargin"), Number::New(isolate,_pInvestorPosition->UseMargin));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"FrozenMargin"), Number::New(isolate,_pInvestorPosition->FrozenMargin));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"FrozenCash"), Number::New(isolate,_pInvestorPosition->FrozenCash));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"FrozenCommission"), Number::New(isolate,_pInvestorPosition->FrozenCommission));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"CashIn"), Number::New(isolate,_pInvestorPosition->CashIn));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"Commission"), Number::New(isolate,_pInvestorPosition->Commission));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"CloseProfit"), Number::New(isolate,_pInvestorPosition->CloseProfit));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"PositionProfit"), Number::New(isolate,_pInvestorPosition->PositionProfit));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"PreSettlementPrice"), Number::New(isolate,_pInvestorPosition->PreSettlementPrice));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"SettlementPrice"), Number::New(isolate,_pInvestorPosition->SettlementPrice));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TradingDay"), String::NewFromUtf8(isolate,_pInvestorPosition->TradingDay));
     jsonRtn->Set(String::NewFromUtf8(isolate,"SettlementID"), Int32::New(isolate,_pInvestorPosition->SettlementID));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"OpenCost"), Number::New(_pInvestorPosition->OpenCost));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"ExchangeMargin"), Number::New(_pInvestorPosition->ExchangeMargin));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"OpenCost"), Number::New(isolate,_pInvestorPosition->OpenCost));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"ExchangeMargin"), Number::New(isolate,_pInvestorPosition->ExchangeMargin));
     jsonRtn->Set(String::NewFromUtf8(isolate,"CombPosition"), Int32::New(isolate,_pInvestorPosition->CombPosition));
     jsonRtn->Set(String::NewFromUtf8(isolate,"CombLongFrozen"), Int32::New(isolate,_pInvestorPosition->CombLongFrozen));
     jsonRtn->Set(String::NewFromUtf8(isolate,"CombShortFrozen"), Int32::New(isolate,_pInvestorPosition->CombShortFrozen));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"CloseProfitByDate"), Number::New(_pInvestorPosition->CloseProfitByDate));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"CloseProfitByTrade"), Number::New(_pInvestorPosition->CloseProfitByTrade));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"CloseProfitByDate"), Number::New(isolate,_pInvestorPosition->CloseProfitByDate));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"CloseProfitByTrade"), Number::New(isolate,_pInvestorPosition->CloseProfitByTrade));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TodayPosition"), Int32::New(isolate,_pInvestorPosition->TodayPosition));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"MarginRateByMoney"), Number::New(_pInvestorPosition->MarginRateByMoney));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"MarginRateByVolume"), Number::New(_pInvestorPosition->MarginRateByVolume));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"MarginRateByMoney"), Number::New(isolate,_pInvestorPosition->MarginRateByMoney));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"MarginRateByVolume"), Number::New(isolate,_pInvestorPosition->MarginRateByVolume));
     *(cbArray + 2) = jsonRtn;
     }
     else {
@@ -1550,24 +1553,24 @@ void WrapTrader::pkg_cb_rqinvestorpositiondetail(CbRtnField* data, Local<Value>*
     jsonRtn->Set(String::NewFromUtf8(isolate,"OpenDate"), String::NewFromUtf8(isolate,pInvestorPositionDetail->OpenDate));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TradeID"), String::NewFromUtf8(isolate,pInvestorPositionDetail->TradeID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"Volume"), Int32::New(isolate,pInvestorPositionDetail->Volume));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"OpenPrice"), Number::New(pInvestorPositionDetail->OpenPrice));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"OpenPrice"), Number::New(isolate,pInvestorPositionDetail->OpenPrice));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TradingDay"), String::NewFromUtf8(isolate,pInvestorPositionDetail->TradingDay));
     jsonRtn->Set(String::NewFromUtf8(isolate,"SettlementID"), Int32::New(isolate,pInvestorPositionDetail->SettlementID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TradeType"), String::NewFromUtf8(isolate,charto_string(pInvestorPositionDetail->TradeType).c_str()));
     jsonRtn->Set(String::NewFromUtf8(isolate,"CombInstrumentID"), String::NewFromUtf8(isolate,pInvestorPositionDetail->CombInstrumentID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ExchangeID"), String::NewFromUtf8(isolate,pInvestorPositionDetail->ExchangeID));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"CloseProfitByDate"), Number::New(pInvestorPositionDetail->CloseProfitByDate));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"CloseProfitByTrade"), Number::New(pInvestorPositionDetail->CloseProfitByTrade));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"PositionProfitByDate"), Number::New(pInvestorPositionDetail->PositionProfitByDate));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"PositionProfitByTrade"), Number::New(pInvestorPositionDetail->PositionProfitByTrade));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"Margin"), Number::New(pInvestorPositionDetail->Margin));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"ExchMargin"), Number::New(pInvestorPositionDetail->ExchMargin));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"MarginRateByMoney"), Number::New(pInvestorPositionDetail->MarginRateByMoney));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"MarginRateByVolume"), Number::New(pInvestorPositionDetail->MarginRateByVolume));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"LastSettlementPrice"), Number::New(pInvestorPositionDetail->LastSettlementPrice));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"SettlementPrice"), Number::New(pInvestorPositionDetail->SettlementPrice));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"CloseProfitByDate"), Number::New(isolate,pInvestorPositionDetail->CloseProfitByDate));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"CloseProfitByTrade"), Number::New(isolate,pInvestorPositionDetail->CloseProfitByTrade));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"PositionProfitByDate"), Number::New(isolate,pInvestorPositionDetail->PositionProfitByDate));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"PositionProfitByTrade"), Number::New(isolate,pInvestorPositionDetail->PositionProfitByTrade));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"Margin"), Number::New(isolate,pInvestorPositionDetail->Margin));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"ExchMargin"), Number::New(isolate,pInvestorPositionDetail->ExchMargin));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"MarginRateByMoney"), Number::New(isolate,pInvestorPositionDetail->MarginRateByMoney));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"MarginRateByVolume"), Number::New(isolate,pInvestorPositionDetail->MarginRateByVolume));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"LastSettlementPrice"), Number::New(isolate,pInvestorPositionDetail->LastSettlementPrice));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"SettlementPrice"), Number::New(isolate,pInvestorPositionDetail->SettlementPrice));
     jsonRtn->Set(String::NewFromUtf8(isolate,"CloseVolume"), Int32::New(isolate,pInvestorPositionDetail->CloseVolume));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"CloseAmount"), Number::New(pInvestorPositionDetail->CloseAmount));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"CloseAmount"), Number::New(isolate,pInvestorPositionDetail->CloseAmount));
     *(cbArray + 2) = jsonRtn;
     }
     else {
@@ -1584,50 +1587,50 @@ void WrapTrader::pkg_cb_rqtradingaccount(CbRtnField* data, Local<Value>*cbArray)
     Local<Object> jsonRtn = Object::New(isolate);
     jsonRtn->Set(String::NewFromUtf8(isolate,"BrokerID"), String::NewFromUtf8(isolate,pTradingAccount->BrokerID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"AccountID"), String::NewFromUtf8(isolate,pTradingAccount->AccountID));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"PreMortgage"), Number::New(pTradingAccount->PreMortgage));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"PreCredit"), Number::New(pTradingAccount->PreCredit));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"PreDeposit"), Number::New(pTradingAccount->PreDeposit));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"PreBalance"), Number::New(pTradingAccount->PreBalance));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"PreMargin"), Number::New(pTradingAccount->PreMargin));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"InterestBase"), Number::New(pTradingAccount->InterestBase));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"Interest"), Number::New(pTradingAccount->Interest));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"Deposit"), Number::New(pTradingAccount->Deposit));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"Withdraw"), Number::New(pTradingAccount->Withdraw));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"FrozenMargin"), Number::New(pTradingAccount->FrozenMargin));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"FrozenCash"), Number::New(pTradingAccount->FrozenCash));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"FrozenCommission"), Number::New(pTradingAccount->FrozenCommission));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"CurrMargin"), Number::New(pTradingAccount->CurrMargin));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"CashIn"), Number::New(pTradingAccount->CashIn));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"Commission"), Number::New(pTradingAccount->Commission));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"CloseProfit"), Number::New(pTradingAccount->CloseProfit));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"PositionProfit"), Number::New(pTradingAccount->PositionProfit));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"Balance"), Number::New(pTradingAccount->Balance));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"Available"), Number::New(pTradingAccount->Available));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"WithdrawQuota"), Number::New(pTradingAccount->WithdrawQuota));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"Reserve"), Number::New(pTradingAccount->Reserve));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"PreMortgage"), Number::New(isolate,pTradingAccount->PreMortgage));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"PreCredit"), Number::New(isolate,pTradingAccount->PreCredit));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"PreDeposit"), Number::New(isolate,pTradingAccount->PreDeposit));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"PreBalance"), Number::New(isolate,pTradingAccount->PreBalance));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"PreMargin"), Number::New(isolate,pTradingAccount->PreMargin));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"InterestBase"), Number::New(isolate,pTradingAccount->InterestBase));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"Interest"), Number::New(isolate,pTradingAccount->Interest));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"Deposit"), Number::New(isolate,pTradingAccount->Deposit));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"Withdraw"), Number::New(isolate,pTradingAccount->Withdraw));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"FrozenMargin"), Number::New(isolate,pTradingAccount->FrozenMargin));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"FrozenCash"), Number::New(isolate,pTradingAccount->FrozenCash));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"FrozenCommission"), Number::New(isolate,pTradingAccount->FrozenCommission));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"CurrMargin"), Number::New(isolate,pTradingAccount->CurrMargin));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"CashIn"), Number::New(isolate,pTradingAccount->CashIn));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"Commission"), Number::New(isolate,pTradingAccount->Commission));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"CloseProfit"), Number::New(isolate,pTradingAccount->CloseProfit));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"PositionProfit"), Number::New(isolate,pTradingAccount->PositionProfit));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"Balance"), Number::New(isolate,pTradingAccount->Balance));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"Available"), Number::New(isolate,pTradingAccount->Available));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"WithdrawQuota"), Number::New(isolate,pTradingAccount->WithdrawQuota));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"Reserve"), Number::New(isolate,pTradingAccount->Reserve));
     jsonRtn->Set(String::NewFromUtf8(isolate,"TradingDay"), String::NewFromUtf8(isolate,pTradingAccount->TradingDay));
     jsonRtn->Set(String::NewFromUtf8(isolate,"SettlementID"), Int32::New(isolate,pTradingAccount->SettlementID));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"Credit"), Number::New(pTradingAccount->Credit));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"Mortgage"), Number::New(pTradingAccount->Mortgage));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"ExchangeMargin"), Number::New(pTradingAccount->ExchangeMargin));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"DeliveryMargin"), Number::New(pTradingAccount->DeliveryMargin));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"ExchangeDeliveryMargin"), Number::New(pTradingAccount->ExchangeDeliveryMargin));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"ReserveBalance"), Number::New(pTradingAccount->ReserveBalance));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"Credit"), Number::New(isolate,pTradingAccount->Credit));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"Mortgage"), Number::New(isolate,pTradingAccount->Mortgage));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"ExchangeMargin"), Number::New(isolate,pTradingAccount->ExchangeMargin));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"DeliveryMargin"), Number::New(isolate,pTradingAccount->DeliveryMargin));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"ExchangeDeliveryMargin"), Number::New(isolate,pTradingAccount->ExchangeDeliveryMargin));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"ReserveBalance"), Number::New(isolate,pTradingAccount->ReserveBalance));
     jsonRtn->Set(String::NewFromUtf8(isolate,"CurrencyID"), String::NewFromUtf8(isolate,pTradingAccount->CurrencyID));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"PreFundMortgageIn"), Number::New(pTradingAccount->PreFundMortgageIn));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"PreFundMortgageOut"), Number::New(pTradingAccount->PreFundMortgageOut));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"FundMortgageIn"), Number::New(pTradingAccount->FundMortgageIn));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"FundMortgageOut"), Number::New(pTradingAccount->FundMortgageOut));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"FundMortgageAvailable"), Number::New(pTradingAccount->FundMortgageAvailable));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"MortgageableFund"), Number::New(pTradingAccount->MortgageableFund));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"SpecProductMargin"), Number::New(pTradingAccount->SpecProductMargin));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"SpecProductFrozenMargin"), Number::New(pTradingAccount->SpecProductFrozenMargin));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"SpecProductCommission"), Number::New(pTradingAccount->SpecProductCommission));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"SpecProductFrozenCommission"), Number::New(pTradingAccount->SpecProductFrozenCommission));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"SpecProductPositionProfit"), Number::New(pTradingAccount->SpecProductPositionProfit));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"SpecProductCloseProfit"), Number::New(pTradingAccount->SpecProductCloseProfit));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"SpecProductPositionProfitByAlg"), Number::New(pTradingAccount->SpecProductPositionProfitByAlg));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"SpecProductExchangeMargin"), Number::New(pTradingAccount->SpecProductExchangeMargin));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"PreFundMortgageIn"), Number::New(isolate,pTradingAccount->PreFundMortgageIn));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"PreFundMortgageOut"), Number::New(isolate,pTradingAccount->PreFundMortgageOut));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"FundMortgageIn"), Number::New(isolate,pTradingAccount->FundMortgageIn));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"FundMortgageOut"), Number::New(isolate,pTradingAccount->FundMortgageOut));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"FundMortgageAvailable"), Number::New(isolate,pTradingAccount->FundMortgageAvailable));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"MortgageableFund"), Number::New(isolate,pTradingAccount->MortgageableFund));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"SpecProductMargin"), Number::New(isolate,pTradingAccount->SpecProductMargin));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"SpecProductFrozenMargin"), Number::New(isolate,pTradingAccount->SpecProductFrozenMargin));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"SpecProductCommission"), Number::New(isolate,pTradingAccount->SpecProductCommission));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"SpecProductFrozenCommission"), Number::New(isolate,pTradingAccount->SpecProductFrozenCommission));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"SpecProductPositionProfit"), Number::New(isolate,pTradingAccount->SpecProductPositionProfit));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"SpecProductCloseProfit"), Number::New(isolate,pTradingAccount->SpecProductCloseProfit));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"SpecProductPositionProfitByAlg"), Number::New(isolate,pTradingAccount->SpecProductPositionProfitByAlg));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"SpecProductExchangeMargin"), Number::New(isolate,pTradingAccount->SpecProductExchangeMargin));
     *(cbArray + 2) = jsonRtn;
     }
     else {
@@ -1655,7 +1658,7 @@ void WrapTrader::pkg_cb_rqinstrument(CbRtnField* data, Local<Value>*cbArray) {
     jsonRtn->Set(String::NewFromUtf8(isolate,"MaxLimitOrderVolume"), Int32::New(isolate,pInstrument->MaxLimitOrderVolume));
     jsonRtn->Set(String::NewFromUtf8(isolate,"MinLimitOrderVolume"), Int32::New(isolate,pInstrument->MinLimitOrderVolume));
     jsonRtn->Set(String::NewFromUtf8(isolate,"VolumeMultiple"), Int32::New(isolate,pInstrument->VolumeMultiple));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"PriceTick"), Number::New(pInstrument->PriceTick));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"PriceTick"), Number::New(isolate,pInstrument->PriceTick));
     jsonRtn->Set(String::NewFromUtf8(isolate,"CreateDate"), String::NewFromUtf8(isolate,pInstrument->CreateDate));
     jsonRtn->Set(String::NewFromUtf8(isolate,"OpenDate"), String::NewFromUtf8(isolate,pInstrument->OpenDate));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ExpireDate"), String::NewFromUtf8(isolate,pInstrument->ExpireDate));
@@ -1665,8 +1668,8 @@ void WrapTrader::pkg_cb_rqinstrument(CbRtnField* data, Local<Value>*cbArray) {
     jsonRtn->Set(String::NewFromUtf8(isolate,"IsTrading"), Int32::New(isolate,pInstrument->IsTrading));
     jsonRtn->Set(String::NewFromUtf8(isolate,"PositionType"), String::NewFromUtf8(isolate,charto_string(pInstrument->PositionType).c_str()));
     jsonRtn->Set(String::NewFromUtf8(isolate,"PositionDateType"), String::NewFromUtf8(isolate,charto_string(pInstrument->PositionDateType).c_str()));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"LongMarginRatio"), Number::New(pInstrument->LongMarginRatio));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"ShortMarginRatio"), Number::New(pInstrument->ShortMarginRatio));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"LongMarginRatio"), Number::New(isolate,pInstrument->LongMarginRatio));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"ShortMarginRatio"), Number::New(isolate,pInstrument->ShortMarginRatio));
     jsonRtn->Set(String::NewFromUtf8(isolate,"MaxMarginSideAlgorithm"), String::NewFromUtf8(isolate,charto_string(pInstrument->MaxMarginSideAlgorithm).c_str()));
     *(cbArray + 2) = jsonRtn;
     }
@@ -1686,45 +1689,45 @@ void WrapTrader::pkg_cb_rqdepthmarketdata(CbRtnField* data, Local<Value>*cbArray
     jsonRtn->Set(String::NewFromUtf8(isolate,"InstrumentID"), String::NewFromUtf8(isolate,pDepthMarketData->InstrumentID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ExchangeID"), String::NewFromUtf8(isolate,pDepthMarketData->ExchangeID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ExchangeInstID"), String::NewFromUtf8(isolate,pDepthMarketData->ExchangeInstID));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"LastPrice"), Number::New(pDepthMarketData->LastPrice));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"PreSettlementPrice"), Number::New(pDepthMarketData->PreSettlementPrice));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"PreClosePrice"), Number::New(pDepthMarketData->PreClosePrice));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"PreOpenInterest"), Number::New(pDepthMarketData->PreOpenInterest));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"OpenPrice"), Number::New(pDepthMarketData->OpenPrice));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"HighestPrice"), Number::New(pDepthMarketData->HighestPrice));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"LowestPrice"), Number::New(pDepthMarketData->LowestPrice));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"LastPrice"), Number::New(isolate,pDepthMarketData->LastPrice));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"PreSettlementPrice"), Number::New(isolate,pDepthMarketData->PreSettlementPrice));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"PreClosePrice"), Number::New(isolate,pDepthMarketData->PreClosePrice));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"PreOpenInterest"), Number::New(isolate,pDepthMarketData->PreOpenInterest));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"OpenPrice"), Number::New(isolate,pDepthMarketData->OpenPrice));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"HighestPrice"), Number::New(isolate,pDepthMarketData->HighestPrice));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"LowestPrice"), Number::New(isolate,pDepthMarketData->LowestPrice));
     jsonRtn->Set(String::NewFromUtf8(isolate,"Volume"), Int32::New(isolate,pDepthMarketData->Volume));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"Turnover"), Number::New(pDepthMarketData->Turnover));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"OpenInterest"), Number::New(pDepthMarketData->OpenInterest));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"ClosePrice"), Number::New(pDepthMarketData->ClosePrice));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"SettlementPrice"), Number::New(pDepthMarketData->SettlementPrice));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"UpperLimitPrice"), Number::New(pDepthMarketData->UpperLimitPrice));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"LowerLimitPrice"), Number::New(pDepthMarketData->LowerLimitPrice));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"PreDelta"), Number::New(pDepthMarketData->PreDelta));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"CurrDelta"), Number::New(pDepthMarketData->CurrDelta));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"Turnover"), Number::New(isolate,pDepthMarketData->Turnover));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"OpenInterest"), Number::New(isolate,pDepthMarketData->OpenInterest));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"ClosePrice"), Number::New(isolate,pDepthMarketData->ClosePrice));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"SettlementPrice"), Number::New(isolate,pDepthMarketData->SettlementPrice));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"UpperLimitPrice"), Number::New(isolate,pDepthMarketData->UpperLimitPrice));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"LowerLimitPrice"), Number::New(isolate,pDepthMarketData->LowerLimitPrice));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"PreDelta"), Number::New(isolate,pDepthMarketData->PreDelta));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"CurrDelta"), Number::New(isolate,pDepthMarketData->CurrDelta));
     jsonRtn->Set(String::NewFromUtf8(isolate,"UpdateTime"), String::NewFromUtf8(isolate,pDepthMarketData->UpdateTime));
     jsonRtn->Set(String::NewFromUtf8(isolate,"UpdateMillisec"), Int32::New(isolate,pDepthMarketData->UpdateMillisec));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"BidPrice1"), Number::New(pDepthMarketData->BidPrice1));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"BidVolume1"), Number::New(pDepthMarketData->BidVolume1));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"AskPrice1"), Number::New(pDepthMarketData->AskPrice1));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"AskVolume1"), Number::New(pDepthMarketData->AskVolume1));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"BidPrice2"), Number::New(pDepthMarketData->BidPrice2));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"BidVolume2"), Number::New(pDepthMarketData->BidVolume2));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"AskPrice2"), Number::New(pDepthMarketData->AskPrice2));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"AskVolume2"), Number::New(pDepthMarketData->AskVolume2));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"BidPrice3"), Number::New(pDepthMarketData->BidPrice3));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"BidVolume3"), Number::New(pDepthMarketData->BidVolume3));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"AskPrice3"), Number::New(pDepthMarketData->AskPrice3));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"AskVolume3"), Number::New(pDepthMarketData->AskVolume3));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"BidPrice4"), Number::New(pDepthMarketData->BidPrice4));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"BidVolume4"), Number::New(pDepthMarketData->BidVolume4));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"AskPrice4"), Number::New(pDepthMarketData->AskPrice4));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"AskVolume4"), Number::New(pDepthMarketData->AskVolume4));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"BidPrice5"), Number::New(pDepthMarketData->BidPrice5));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"BidVolume5"), Number::New(pDepthMarketData->BidVolume5));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"AskPrice5"), Number::New(pDepthMarketData->AskPrice5));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"AskVolume5"), Number::New(pDepthMarketData->AskVolume5));
-    jsonRtn->Set(String::NewFromUtf8(isolate,"AveragePrice"), Number::New(pDepthMarketData->AveragePrice));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"BidPrice1"), Number::New(isolate,pDepthMarketData->BidPrice1));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"BidVolume1"), Number::New(isolate,pDepthMarketData->BidVolume1));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"AskPrice1"), Number::New(isolate,pDepthMarketData->AskPrice1));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"AskVolume1"), Number::New(isolate,pDepthMarketData->AskVolume1));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"BidPrice2"), Number::New(isolate,pDepthMarketData->BidPrice2));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"BidVolume2"), Number::New(isolate,pDepthMarketData->BidVolume2));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"AskPrice2"), Number::New(isolate,pDepthMarketData->AskPrice2));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"AskVolume2"), Number::New(isolate,pDepthMarketData->AskVolume2));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"BidPrice3"), Number::New(isolate,pDepthMarketData->BidPrice3));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"BidVolume3"), Number::New(isolate,pDepthMarketData->BidVolume3));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"AskPrice3"), Number::New(isolate,pDepthMarketData->AskPrice3));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"AskVolume3"), Number::New(isolate,pDepthMarketData->AskVolume3));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"BidPrice4"), Number::New(isolate,pDepthMarketData->BidPrice4));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"BidVolume4"), Number::New(isolate,pDepthMarketData->BidVolume4));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"AskPrice4"), Number::New(isolate,pDepthMarketData->AskPrice4));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"AskVolume4"), Number::New(isolate,pDepthMarketData->AskVolume4));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"BidPrice5"), Number::New(isolate,pDepthMarketData->BidPrice5));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"BidVolume5"), Number::New(isolate,pDepthMarketData->BidVolume5));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"AskPrice5"), Number::New(isolate,pDepthMarketData->AskPrice5));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"AskVolume5"), Number::New(isolate,pDepthMarketData->AskVolume5));
+    jsonRtn->Set(String::NewFromUtf8(isolate,"AveragePrice"), Number::New(isolate,pDepthMarketData->AveragePrice));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ActionDay"), String::NewFromUtf8(isolate,pDepthMarketData->ActionDay));
     *(cbArray + 2) = jsonRtn;
     }

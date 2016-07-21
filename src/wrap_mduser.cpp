@@ -101,7 +101,7 @@ void WrapMdUser::On(const FunctionCallbackInfo<Value>& args) {
     Persistent<Function> unRecoveryCb;// = PersistentBase<Function>::New(isolate,cb);
     unRecoveryCb.Reset(isolate,cb);
 
-    String::AsciiValue eNameAscii(eventName);
+    String::Utf8Value eNameAscii(eventName);
 
     std::map<const char*, int>::iterator eIt = event_map.find(*eNameAscii);
     if (eIt == event_map.end()) {
@@ -117,9 +117,11 @@ void WrapMdUser::On(const FunctionCallbackInfo<Value>& args) {
         return;
     }
 
-    callback_map[eIt->second] = unRecoveryCb;
+    //zhangls thinkagain
+    //callback_map[eIt->second] = unRecoveryCb;
     obj->uvMdUser->On(*eNameAscii,eIt->second, FunCallback);
-    return scope.Close(Int32::New(isolate,0));
+    args.GetReturnValue().Set(Int32::New(isolate,0));
+    return;
 }
 
 void WrapMdUser::Connect(const FunctionCallbackInfo<Value>& args) {
@@ -135,24 +137,23 @@ void WrapMdUser::Connect(const FunctionCallbackInfo<Value>& args) {
     WrapMdUser* obj = ObjectWrap::Unwrap<WrapMdUser>(args.This());
     if (!args[2]->IsUndefined() && args[2]->IsFunction()) {
         uuid = ++s_uuid;
-        fun_rtncb_map[uuid] = Persistent<Function>::New(Local<Function>::Cast(args[2]));
+        fun_rtncb_map[uuid].Reset(isolate,Local<Function>::Cast(args[2]));
         std::string _head = std::string(log);
         logger_cout(_head.append(" uuid is ").append(to_string(uuid)).c_str());
     }
 
     Local<String> frontAddr = args[0]->ToString();
     Local<String> szPath = args[1]->IsUndefined() ? String::NewFromUtf8(isolate,"m") : args[0]->ToString();
-    String::AsciiValue addrAscii(frontAddr);
-    String::AsciiValue pathAscii(szPath);
+    String::Utf8Value addrAscii(frontAddr);
+    String::Utf8Value pathAscii(szPath);
 
     UVConnectField pConnectField;
     memset(&pConnectField, 0, sizeof(pConnectField));
-    strcpy(pConnectField.front_addr, ((std::string)*addrAscii).c_str());
-    strcpy(pConnectField.szPath, ((std::string)*pathAscii).c_str());  
-    logger_cout(log.append(" ").append((std::string)*addrAscii).append("|").append((std::string)*pathAscii).append("|").c_str());
+    strcpy(pConnectField.front_addr, *addrAscii);
+    strcpy(pConnectField.szPath, *pathAscii);
     obj->uvMdUser->Connect(&pConnectField, FunRtnCallback, uuid);
-            args.GetReturnValue().Set(Undefined(isolate));
-        return;
+    args.GetReturnValue().Set(Undefined(isolate));
+    return;
 }
 
 void WrapMdUser::ReqUserLogin(const FunctionCallbackInfo<Value>& args) {
@@ -179,16 +180,15 @@ void WrapMdUser::ReqUserLogin(const FunctionCallbackInfo<Value>& args) {
     Local<String> broker = args[0]->ToString();
     Local<String> userId = args[1]->ToString();
     Local<String> pwd = args[2]->ToString();
-    String::AsciiValue brokerAscii(broker);
-    String::AsciiValue userIdAscii(userId);
-    String::AsciiValue pwdAscii(pwd);
+    String::Utf8Value brokerAscii(broker);
+    String::Utf8Value userIdAscii(userId);
+    String::Utf8Value pwdAscii(pwd);
 
     CThostFtdcReqUserLoginField req;
     memset(&req, 0, sizeof(req));
-    strcpy(req.BrokerID, ((std::string)*brokerAscii).c_str());
-    strcpy(req.UserID, ((std::string)*userIdAscii).c_str());
-    strcpy(req.Password, ((std::string)*pwdAscii).c_str());
-    logger_cout(log.append(" ").append((std::string)*brokerAscii).append("|").append((std::string)*userIdAscii).append("|").append((std::string)*pwdAscii).c_str());
+    strcpy(req.BrokerID, *brokerAscii);
+    strcpy(req.UserID, *userIdAscii);
+    strcpy(req.Password, *pwdAscii);
     obj->uvMdUser->ReqUserLogin(&req, FunRtnCallback, uuid);
     args.GetReturnValue().Set(Undefined(isolate));
     return;
@@ -209,21 +209,20 @@ void WrapMdUser::ReqUserLogout(const FunctionCallbackInfo<Value>& args) {
     WrapMdUser* obj = ObjectWrap::Unwrap<WrapMdUser>(args.This());
     if (!args[2]->IsUndefined() && args[2]->IsFunction()) {
         uuid = ++s_uuid;
-        fun_rtncb_map[uuid] = Persistent<Function>::New(Local<Function>::Cast(args[2]));
+        fun_rtncb_map[uuid].Reset(isolate, Local<Function>::Cast(args[2]));
         std::string _head = std::string(log);
         logger_cout(_head.append(" uuid is ").append(to_string(uuid)).c_str());
     }
 
     Local<String> broker = args[0]->ToString();
     Local<String> userId = args[1]->ToString();
-    String::AsciiValue brokerAscii(broker);
-    String::AsciiValue userIdAscii(userId);
+    String::Utf8Value brokerAscii(broker);
+    String::Utf8Value userIdAscii(userId);
 
     CThostFtdcUserLogoutField req;
     memset(&req, 0, sizeof(req));
-    strcpy(req.BrokerID, ((std::string)*brokerAscii).c_str());
-    strcpy(req.UserID, ((std::string)*userIdAscii).c_str());
-    logger_cout(log.append(" ").append((std::string)*brokerAscii).append("|").append((std::string)*userIdAscii).c_str());
+    strcpy(req.BrokerID, *brokerAscii);
+    strcpy(req.UserID, *userIdAscii);
     obj->uvMdUser->ReqUserLogout(&req, FunRtnCallback, uuid);
     args.GetReturnValue().Set(Undefined(isolate));
     return;
@@ -244,7 +243,7 @@ void WrapMdUser::SubscribeMarketData(const FunctionCallbackInfo<Value>& args) {
     WrapMdUser* obj = ObjectWrap::Unwrap<WrapMdUser>(args.This());
     if (!args[1]->IsUndefined() && args[1]->IsFunction()) {
         uuid = ++s_uuid;
-        fun_rtncb_map[uuid] = Persistent<Function>::New(Local<Function>::Cast(args[1]));
+        fun_rtncb_map[uuid].Reset(isolate,Local<Function>::Cast(args[1]));
         std::string _head = std::string(log);
         logger_cout(_head.append(" uuid is ").append(to_string(uuid)).c_str());
     } 
@@ -253,7 +252,7 @@ void WrapMdUser::SubscribeMarketData(const FunctionCallbackInfo<Value>& args) {
     
     for (uint32_t i = 0; i < instrumentIDs->Length(); i++) {
         Local<String> instrumentId = instrumentIDs->Get(i)->ToString();
-        String::AsciiValue idAscii(instrumentId);           
+        String::Utf8Value idAscii(instrumentId);           
         char* id = new char[instrumentId->Length() + 1];
         strcpy(id, *idAscii);
         idArray[i] = id;
@@ -291,7 +290,7 @@ void WrapMdUser::UnSubscribeMarketData(const FunctionCallbackInfo<Value>& args) 
 
     for (uint32_t i = 0; i < instrumentIDs->Length(); i++) {
         Local<String> instrumentId = instrumentIDs->Get(i)->ToString();
-        String::AsciiValue idAscii(instrumentId);
+        String::Utf8Value idAscii(instrumentId);
         char* id = new char[instrumentId->Length() + 1];
         strcpy(id, *idAscii);
         idArray[i] = id;
@@ -309,7 +308,8 @@ void WrapMdUser::Disposed(const FunctionCallbackInfo<Value>& args) {
     obj->uvMdUser->Disposed();
     std::map<int, Persistent<Function> >::iterator callback_it = callback_map.begin();
     while (callback_it != callback_map.end()) {
-        callback_it->second.Dispose();
+        //zhangls thinkagain
+        //callback_it->second.Dispose();
         callback_it++;
     }
     event_map.clear();
@@ -326,17 +326,18 @@ void WrapMdUser::Disposed(const FunctionCallbackInfo<Value>& args) {
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
 void WrapMdUser::FunCallback(CbRtnField *data) {
-    Isolate* isolate = args.GetIsolate();
     std::map<int, Persistent<Function> >::iterator cIt = callback_map.find(data->eFlag);
     if (cIt == callback_map.end())
         return;
 
+//zhangls thinkagain
+/*
     switch (data->eFlag) {
     case T_ON_CONNECT:
     {
-                         Local<Value> argv[1] = { Local<Value>::New(isolate,Undefined(isolate)) };
-                         cIt->second->Call(Context::GetCurrent()->Global(), 1, argv);
-                         break;
+         Local<Value> argv[1] = { Local<Value>::New(isolate,Undefined(isolate)) };
+         cIt->second->Call(Context::GetCurrent()->Global(), 1, argv);
+         break;
     }
     case T_ON_DISCONNECTED:
     {
@@ -388,20 +389,23 @@ void WrapMdUser::FunCallback(CbRtnField *data) {
                           break;
     }
     }
-    
+*/
 }
 void WrapMdUser::FunRtnCallback(int result, void* baton) {
-    Isolate* isolate = args.GetIsolate();
     LookupCtpApiBaton* tmp = static_cast<LookupCtpApiBaton*>(baton);
     if (tmp->uuid != -1) {
         std::map<const int, Persistent<Function> >::iterator it = fun_rtncb_map.find(tmp->uuid);
         Local<Value> argv[1] = { Local<Value>::New(isolate,Int32::New(isolate,tmp->nResult)) };
+        //zhangls thinkagain
+/*
         it->second->Call(Context::GetCurrent()->Global(), 1, argv);
         it->second.Dispose();
+*/
         fun_rtncb_map.erase(tmp->uuid);
     }
-    
 }
+
+
 void WrapMdUser::pkg_cb_userlogin(CbRtnField* data, Local<Value>*cbArray) {
     *cbArray = Int32::New(isolate,data->nRequestID);
     *(cbArray + 1) = Boolean::New(isolate,data->bIsLast)->ToBoolean();
