@@ -170,7 +170,8 @@ void WrapMdUser::ReqUserLogin(const FunctionCallbackInfo<Value>& args) {
     WrapMdUser* obj = ObjectWrap::Unwrap<WrapMdUser>(args.This());
     if (!args[3]->IsUndefined() && args[3]->IsFunction()) {
         uuid = ++s_uuid;
-        fun_rtncb_map[uuid] = Persistent<Function>::New(Local<Function>::Cast(args[3]));
+        //fun_rtncb_map[uuid] = Persistent<Function>::New(Local<Function>::Cast(args[3]));
+        fun_rtncb_map[uuid].Reset(isolate,Local<Function>::Cast(args[3]));
         std::string _head = std::string(log);
         logger_cout(_head.append(" uuid is ").append(to_string(uuid)).c_str());
     }
@@ -280,7 +281,8 @@ void WrapMdUser::UnSubscribeMarketData(const FunctionCallbackInfo<Value>& args) 
     WrapMdUser* obj = ObjectWrap::Unwrap<WrapMdUser>(args.This());
     if (!args[1]->IsUndefined() && args[1]->IsFunction()) {
         uuid = ++s_uuid;
-        fun_rtncb_map[uuid] = Persistent<Function>::New(Local<Function>::Cast(args[1]));
+        //fun_rtncb_map[uuid] = Persistent<Function>::New(Local<Function>::Cast(args[1]));
+        fun_rtncb_map[uuid].Reset(isolate,Local<Function>::Cast(args[1]));
         std::string _head = std::string(log);
         logger_cout(_head.append(" uuid is ").append(to_string(uuid)).c_str());
     }
@@ -332,7 +334,7 @@ void WrapMdUser::FunCallback(CbRtnField *data) {
     switch (data->eFlag) {
     case T_ON_CONNECT:
     {
-                         Local<Value> argv[1] = { Local<Value>::New(Undefined(isolate)) };
+                         Local<Value> argv[1] = { Local<Value>::New(isolate,Undefined(isolate)) };
                          cIt->second->Call(Context::GetCurrent()->Global(), 1, argv);
                          break;
     }
@@ -393,7 +395,7 @@ void WrapMdUser::FunRtnCallback(int result, void* baton) {
     LookupCtpApiBaton* tmp = static_cast<LookupCtpApiBaton*>(baton);
     if (tmp->uuid != -1) {
         std::map<const int, Persistent<Function> >::iterator it = fun_rtncb_map.find(tmp->uuid);
-        Local<Value> argv[1] = { Local<Value>::New(Int32::New(isolate,tmp->nResult)) };
+        Local<Value> argv[1] = { Local<Value>::New(isolate,Int32::New(isolate,tmp->nResult)) };
         it->second->Call(Context::GetCurrent()->Global(), 1, argv);
         it->second.Dispose();
         fun_rtncb_map.erase(tmp->uuid);
@@ -406,7 +408,7 @@ void WrapMdUser::pkg_cb_userlogin(CbRtnField* data, Local<Value>*cbArray) {
     CThostFtdcRspUserLoginField* pRspUserLogin = static_cast<CThostFtdcRspUserLoginField*>(data->rtnField);
     CThostFtdcRspInfoField *pRspInfo = static_cast<CThostFtdcRspInfoField*>(data->rspInfo);
     if (pRspUserLogin) {
-        Local<Object> jsonRtn = Object::New();
+        Local<Object> jsonRtn = Object::New(isolate);
         jsonRtn->Set(String::NewFromUtf8(isolate,"TradingDay"), String::NewFromUtf8(isolate,pRspUserLogin->TradingDay));
         jsonRtn->Set(String::NewFromUtf8(isolate,"LoginTime"), String::NewFromUtf8(isolate,pRspUserLogin->LoginTime));
         jsonRtn->Set(String::NewFromUtf8(isolate,"BrokerID"), String::NewFromUtf8(isolate,pRspUserLogin->BrokerID));
@@ -423,7 +425,7 @@ void WrapMdUser::pkg_cb_userlogin(CbRtnField* data, Local<Value>*cbArray) {
         *(cbArray + 2) = jsonRtn;
     }
     else {
-        *(cbArray + 2) = Local<Value>::New(Undefined(isolate));
+        *(cbArray + 2) = Local<Value>::New(isolate,Undefined(isolate));
     }
 
     *(cbArray + 3) = pkg_rspinfo(pRspInfo);
@@ -436,13 +438,13 @@ void WrapMdUser::pkg_cb_userlogout(CbRtnField* data, Local<Value>*cbArray) {
     CThostFtdcRspUserLoginField* pRspUserLogin = static_cast<CThostFtdcRspUserLoginField*>(data->rtnField);
     CThostFtdcRspInfoField *pRspInfo = static_cast<CThostFtdcRspInfoField*>(data->rspInfo);
     if (pRspUserLogin) {
-        Local<Object> jsonRtn = Object::New();
+        Local<Object> jsonRtn = Object::New(isolate);
         jsonRtn->Set(String::NewFromUtf8(isolate,"BrokerID"), String::NewFromUtf8(isolate,pRspUserLogin->BrokerID));
         jsonRtn->Set(String::NewFromUtf8(isolate,"UserID"), String::NewFromUtf8(isolate,pRspUserLogin->UserID));
         *(cbArray + 2) = jsonRtn;
     }
     else {
-        *(cbArray + 2) = Local<Value>::New(Undefined(isolate));
+        *(cbArray + 2) = Local<Value>::New(isolate,Undefined(isolate));
     }
     *(cbArray + 3) = pkg_rspinfo(pRspInfo);
     return;
@@ -453,12 +455,12 @@ void WrapMdUser::pkg_cb_rspsubmarketdata(CbRtnField* data, Local<Value>*cbArray)
     CThostFtdcSpecificInstrumentField *pSpecificInstrument = static_cast<CThostFtdcSpecificInstrumentField*>(data->rtnField);
     CThostFtdcRspInfoField *pRspInfo = static_cast<CThostFtdcRspInfoField*>(data->rspInfo);
     if (pSpecificInstrument) {
-        Local<Object> jsonRtn = Object::New();
+        Local<Object> jsonRtn = Object::New(isolate);
         jsonRtn->Set(String::NewFromUtf8(isolate,"InstrumentID"), String::NewFromUtf8(isolate,pSpecificInstrument->InstrumentID));
         *(cbArray + 2) = jsonRtn;
     }
     else {
-        *(cbArray + 2) = Local<Value>::New(Undefined(isolate));
+        *(cbArray + 2) = Local<Value>::New(isolate,Undefined(isolate));
     }
     *(cbArray + 3) = pkg_rspinfo(pRspInfo);
     return;
@@ -469,12 +471,12 @@ void WrapMdUser::pkg_cb_unrspsubmarketdata(CbRtnField* data, Local<Value>*cbArra
     CThostFtdcSpecificInstrumentField *pSpecificInstrument = static_cast<CThostFtdcSpecificInstrumentField*>(data->rtnField);
     CThostFtdcRspInfoField *pRspInfo = static_cast<CThostFtdcRspInfoField*>(data->rspInfo);
     if (pSpecificInstrument) {
-        Local<Object> jsonRtn = Object::New();
+        Local<Object> jsonRtn = Object::New(isolate);
         jsonRtn->Set(String::NewFromUtf8(isolate,"InstrumentID"), String::NewFromUtf8(isolate,pSpecificInstrument->InstrumentID));
         *(cbArray + 2) = jsonRtn;
     }
     else {
-        *(cbArray + 2) = Local<Value>::New(Undefined(isolate));
+        *(cbArray + 2) = Local<Value>::New(isolate,Undefined(isolate));
     }
     *(cbArray + 3) = pkg_rspinfo(pRspInfo);
     return;
@@ -482,7 +484,7 @@ void WrapMdUser::pkg_cb_unrspsubmarketdata(CbRtnField* data, Local<Value>*cbArra
 void WrapMdUser::pkg_cb_rtndepthmarketdata(CbRtnField* data, Local<Value>*cbArray) {
     CThostFtdcDepthMarketDataField *pDepthMarketData = static_cast<CThostFtdcDepthMarketDataField*>(data->rtnField);
     if (pDepthMarketData) {               
-        Local<Object> jsonRtn = Object::New();
+        Local<Object> jsonRtn = Object::New(isolate);
         jsonRtn->Set(String::NewFromUtf8(isolate,"TradingDay"), String::NewFromUtf8(isolate,pDepthMarketData->TradingDay));
         jsonRtn->Set(String::NewFromUtf8(isolate,"InstrumentID"), String::NewFromUtf8(isolate,pDepthMarketData->InstrumentID));
         jsonRtn->Set(String::NewFromUtf8(isolate,"ExchangeID"), String::NewFromUtf8(isolate,pDepthMarketData->ExchangeID));
@@ -530,7 +532,7 @@ void WrapMdUser::pkg_cb_rtndepthmarketdata(CbRtnField* data, Local<Value>*cbArra
         *cbArray = jsonRtn;
     }
     else {
-        *cbArray = Local<Value>::New(Undefined(isolate));
+        *cbArray = Local<Value>::New(isolate,Undefined(isolate));
     }
     
     return;
@@ -545,12 +547,12 @@ void WrapMdUser::pkg_cb_rsperror(CbRtnField* data, Local<Value>*cbArray) {
 
 Local<Value> WrapMdUser::pkg_rspinfo(CThostFtdcRspInfoField *pRspInfo) {
     if (pRspInfo) {
-        Local<Object> jsonInfo = Object::New();
+        Local<Object> jsonInfo = Object::New(isolate);
         jsonInfo->Set(String::NewFromUtf8(isolate,"ErrorID"), Int32::New(isolate,pRspInfo->ErrorID));
         jsonInfo->Set(String::NewFromUtf8(isolate,"ErrorMsg"), String::NewFromUtf8(isolate,pRspInfo->ErrorMsg));
         return jsonInfo;
     }
     else {
-        return Local<Value>::New(Undefined(isolate));
+        return Local<Value>::New(isolate,Undefined(isolate));
     }
 }

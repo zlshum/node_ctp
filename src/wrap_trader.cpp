@@ -895,7 +895,7 @@ void WrapTrader::FunCallback(CbRtnField *data) {
     switch (data->eFlag) {
     case T_ON_CONNECT:
     {
-             Local<Value> argv[1] = { Local<Value>::New(Undefined(isolate)) };
+             Local<Value> argv[1] = { Local<Value>::New(isolate,Undefined(isolate)) };
              cIt->second->Call(Context::GetCurrent()->Global(), 1, argv);
              break;
     }
@@ -1049,7 +1049,7 @@ void WrapTrader::FunRtnCallback(int result, void* baton) {
     LookupCtpApiBaton* tmp = static_cast<LookupCtpApiBaton*>(baton);     
     if (tmp->uuid != -1) {
     std::map<int, Persistent<Function> >::iterator it = fun_rtncb_map.find(tmp->uuid);
-    Local<Value> argv[2] = { Local<Value>::New(Int32::New(isolate,tmp->nResult)),Local<Value>::New(Int32::New(isolate,tmp->iRequestID)) };
+    Local<Value> argv[2] = { Local<Value>::New(isolate,Int32::New(isolate,tmp->nResult)),Local<Value>::New(isolate,Int32::New(isolate,tmp->iRequestID)) };
     it->second->Call(Context::GetCurrent()->Global(), 2, argv);
     it->second.Dispose();
     fun_rtncb_map.erase(tmp->uuid);          
@@ -1063,7 +1063,7 @@ void WrapTrader::pkg_cb_userlogin(CbRtnField* data, Local<Value>*cbArray) {
     *(cbArray + 1) = Boolean::New(isolate,data->bIsLast)->ToBoolean();
     if (data->rtnField){  
         CThostFtdcRspUserLoginField* pRspUserLogin = static_cast<CThostFtdcRspUserLoginField*>(data->rtnField);
-    Local<Object> jsonRtn = Object::New();
+    Local<Object> jsonRtn = Object::New(isolate);
     jsonRtn->Set(String::NewFromUtf8(isolate,"TradingDay"), String::NewFromUtf8(isolate,pRspUserLogin->TradingDay));
     jsonRtn->Set(String::NewFromUtf8(isolate,"LoginTime"), String::NewFromUtf8(isolate,pRspUserLogin->LoginTime));
     jsonRtn->Set(String::NewFromUtf8(isolate,"BrokerID"), String::NewFromUtf8(isolate,pRspUserLogin->BrokerID));
@@ -1080,7 +1080,7 @@ void WrapTrader::pkg_cb_userlogin(CbRtnField* data, Local<Value>*cbArray) {
     *(cbArray + 2) = jsonRtn;
     }
     else {
-    *(cbArray + 2) = Local<Value>::New(Undefined(isolate));
+    *(cbArray + 2) = Local<Value>::New(isolate,Undefined(isolate));
     }
     
     *(cbArray + 3) = pkg_rspinfo(data->rspInfo);
@@ -1092,13 +1092,13 @@ void WrapTrader::pkg_cb_userlogout(CbRtnField* data, Local<Value>*cbArray) {
     if (data->rtnField){ 
         CThostFtdcRspUserLoginField* pRspUserLogin = static_cast<CThostFtdcRspUserLoginField*>(data->rtnField);
 
-    Local<Object> jsonRtn = Object::New();
+    Local<Object> jsonRtn = Object::New(isolate);
     jsonRtn->Set(String::NewFromUtf8(isolate,"BrokerID"), String::NewFromUtf8(isolate,pRspUserLogin->BrokerID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"UserID"), String::NewFromUtf8(isolate,pRspUserLogin->UserID));
     *(cbArray + 2) = jsonRtn;
     }
     else {
-    *(cbArray + 2) = Local<Value>::New(Undefined(isolate));
+    *(cbArray + 2) = Local<Value>::New(isolate,Undefined(isolate));
     }
     *(cbArray + 3) = pkg_rspinfo(data->rspInfo);
     return;
@@ -1108,7 +1108,7 @@ void WrapTrader::pkg_cb_confirm(CbRtnField* data, Local<Value>*cbArray) {
     *(cbArray + 1) = Boolean::New(isolate,data->bIsLast)->ToBoolean();
     if (data->rtnField){ 
         CThostFtdcSettlementInfoConfirmField* pSettlementInfoConfirm = static_cast<CThostFtdcSettlementInfoConfirmField*>(data->rtnField);
-    Local<Object> jsonRtn = Object::New();
+    Local<Object> jsonRtn = Object::New(isolate);
     jsonRtn->Set(String::NewFromUtf8(isolate,"BrokerID"), String::NewFromUtf8(isolate,pSettlementInfoConfirm->BrokerID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"InvestorID"), String::NewFromUtf8(isolate,pSettlementInfoConfirm->InvestorID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ConfirmDate"), String::NewFromUtf8(isolate,pSettlementInfoConfirm->ConfirmDate));
@@ -1116,7 +1116,7 @@ void WrapTrader::pkg_cb_confirm(CbRtnField* data, Local<Value>*cbArray) {
     *(cbArray + 2) = jsonRtn;
     }
     else {
-    *(cbArray + 2) = Local<Value>::New(Undefined(isolate));
+    *(cbArray + 2) = Local<Value>::New(isolate,Undefined(isolate));
     }
     *(cbArray + 3) = pkg_rspinfo(data->rspInfo);
     return;
@@ -1126,7 +1126,7 @@ void WrapTrader::pkg_cb_orderinsert(CbRtnField* data, Local<Value>*cbArray) {
     *(cbArray + 1) = Boolean::New(isolate,data->bIsLast)->ToBoolean();
     if (data->rtnField){ 
         CThostFtdcInputOrderField* pInputOrder = static_cast<CThostFtdcInputOrderField*>(data->rtnField);
-    Local<Object> jsonRtn = Object::New();
+    Local<Object> jsonRtn = Object::New(isolate);
     jsonRtn->Set(String::NewFromUtf8(isolate,"BrokerID"), String::NewFromUtf8(isolate,pInputOrder->BrokerID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"InvestorID"), String::NewFromUtf8(isolate,pInputOrder->InvestorID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"InstrumentID"), String::NewFromUtf8(isolate,pInputOrder->InstrumentID));
@@ -1153,7 +1153,7 @@ void WrapTrader::pkg_cb_orderinsert(CbRtnField* data, Local<Value>*cbArray) {
     *(cbArray + 2) = jsonRtn;
     }
     else {
-    *(cbArray + 2) = Local<Value>::New(Undefined(isolate));
+    *(cbArray + 2) = Local<Value>::New(isolate,Undefined(isolate));
     }
     *(cbArray + 3) = pkg_rspinfo(data->rspInfo);
     return;
@@ -1161,7 +1161,7 @@ void WrapTrader::pkg_cb_orderinsert(CbRtnField* data, Local<Value>*cbArray) {
 void WrapTrader::pkg_cb_errorderinsert(CbRtnField* data, Local<Value>*cbArray) {
     if (data->rtnField){ 
         CThostFtdcInputOrderField* pInputOrder = static_cast<CThostFtdcInputOrderField*>(data->rtnField);
-    Local<Object> jsonRtn = Object::New();
+    Local<Object> jsonRtn = Object::New(isolate);
     jsonRtn->Set(String::NewFromUtf8(isolate,"BrokerID"), String::NewFromUtf8(isolate,pInputOrder->BrokerID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"InvestorID"), String::NewFromUtf8(isolate,pInputOrder->InvestorID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"InstrumentID"), String::NewFromUtf8(isolate,pInputOrder->InstrumentID));
@@ -1188,7 +1188,7 @@ void WrapTrader::pkg_cb_errorderinsert(CbRtnField* data, Local<Value>*cbArray) {
     *cbArray = jsonRtn;
     }
     else {
-    *cbArray = Local<Value>::New(Undefined(isolate));
+    *cbArray = Local<Value>::New(isolate,Undefined(isolate));
     }
     *(cbArray + 1) = pkg_rspinfo(data->rspInfo);
     return;
@@ -1198,7 +1198,7 @@ void WrapTrader::pkg_cb_orderaction(CbRtnField* data, Local<Value>*cbArray) {
     *(cbArray + 1) = Boolean::New(isolate,data->bIsLast)->ToBoolean();
     if (data->rtnField){ 
         CThostFtdcInputOrderActionField* pInputOrderAction = static_cast<CThostFtdcInputOrderActionField*>(data->rtnField);
-    Local<Object> jsonRtn = Object::New();
+    Local<Object> jsonRtn = Object::New(isolate);
     jsonRtn->Set(String::NewFromUtf8(isolate,"BrokerID"), String::NewFromUtf8(isolate,pInputOrderAction->BrokerID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"InvestorID"), String::NewFromUtf8(isolate,pInputOrderAction->InvestorID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"OrderActionRef"), Int32::New(isolate,pInputOrderAction->OrderActionRef));
@@ -1216,7 +1216,7 @@ void WrapTrader::pkg_cb_orderaction(CbRtnField* data, Local<Value>*cbArray) {
     *(cbArray + 2) = jsonRtn;
     }
     else {
-    *(cbArray + 2) = Local<Value>::New(Undefined(isolate));
+    *(cbArray + 2) = Local<Value>::New(isolate,Undefined(isolate));
     }
     *(cbArray + 3) = pkg_rspinfo(data->rspInfo);
     return;
@@ -1224,7 +1224,7 @@ void WrapTrader::pkg_cb_orderaction(CbRtnField* data, Local<Value>*cbArray) {
 void WrapTrader::pkg_cb_errorderaction(CbRtnField* data, Local<Value>*cbArray) {
     if (data->rtnField){ 
         CThostFtdcOrderActionField* pOrderAction = static_cast<CThostFtdcOrderActionField*>(data->rtnField);
-    Local<Object> jsonRtn = Object::New();
+    Local<Object> jsonRtn = Object::New(isolate);
     jsonRtn->Set(String::NewFromUtf8(isolate,"BrokerID"), String::NewFromUtf8(isolate,pOrderAction->BrokerID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"InvestorID"), String::NewFromUtf8(isolate,pOrderAction->InvestorID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"OrderActionRef"), Int32::New(isolate,pOrderAction->OrderActionRef));
@@ -1252,7 +1252,7 @@ void WrapTrader::pkg_cb_errorderaction(CbRtnField* data, Local<Value>*cbArray) {
     *cbArray = jsonRtn;
     }
     else {
-    *cbArray = Local<Value>::New(Undefined(isolate));
+    *cbArray = Local<Value>::New(isolate,Undefined(isolate));
     }
     *(cbArray + 1) = pkg_rspinfo(data->rspInfo);
     return;
@@ -1262,7 +1262,7 @@ void WrapTrader::pkg_cb_rspqryorder(CbRtnField* data, Local<Value>*cbArray) {
     *(cbArray + 1) = Boolean::New(isolate,data->bIsLast)->ToBoolean();
     if (data->rtnField){ 
         CThostFtdcOrderField* pOrder = static_cast<CThostFtdcOrderField*>(data->rtnField);
-    Local<Object> jsonRtn = Object::New();
+    Local<Object> jsonRtn = Object::New(isolate);
     jsonRtn->Set(String::NewFromUtf8(isolate,"BrokerID"), String::NewFromUtf8(isolate,pOrder->BrokerID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"InvestorID"), String::NewFromUtf8(isolate,pOrder->InvestorID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"InstrumentID"), String::NewFromUtf8(isolate,pOrder->InstrumentID));
@@ -1323,7 +1323,7 @@ void WrapTrader::pkg_cb_rspqryorder(CbRtnField* data, Local<Value>*cbArray) {
     *(cbArray + 2) = jsonRtn;
     }
     else {
-    *(cbArray + 2) = Local<Value>::New(Undefined(isolate));
+    *(cbArray + 2) = Local<Value>::New(isolate,Undefined(isolate));
     }
     *(cbArray + 3) = pkg_rspinfo(data->rspInfo);
     return;
@@ -1331,7 +1331,7 @@ void WrapTrader::pkg_cb_rspqryorder(CbRtnField* data, Local<Value>*cbArray) {
 void WrapTrader::pkg_cb_rtnorder(CbRtnField* data, Local<Value>*cbArray) {
     if (data->rtnField){ 
         CThostFtdcOrderField* pOrder = static_cast<CThostFtdcOrderField*>(data->rtnField);
-    Local<Object> jsonRtn = Object::New();
+    Local<Object> jsonRtn = Object::New(isolate);
     jsonRtn->Set(String::NewFromUtf8(isolate,"BrokerID"), String::NewFromUtf8(isolate,pOrder->BrokerID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"InvestorID"), String::NewFromUtf8(isolate,pOrder->InvestorID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"InstrumentID"), String::NewFromUtf8(isolate,pOrder->InstrumentID));
@@ -1392,7 +1392,7 @@ void WrapTrader::pkg_cb_rtnorder(CbRtnField* data, Local<Value>*cbArray) {
     *cbArray = jsonRtn;
     }
     else {
-    *cbArray = Local<Value>::New(Undefined(isolate));
+    *cbArray = Local<Value>::New(isolate,Undefined(isolate));
     }
     return;
 }
@@ -1401,7 +1401,7 @@ void WrapTrader::pkg_cb_rqtrade(CbRtnField* data, Local<Value>*cbArray) {
     *(cbArray + 1) = Boolean::New(isolate,data->bIsLast)->ToBoolean();
     if (data->rtnField){ 
         CThostFtdcTradeField* pTrade = static_cast<CThostFtdcTradeField*>(data->rtnField);
-    Local<Object> jsonRtn = Object::New();
+    Local<Object> jsonRtn = Object::New(isolate);
     jsonRtn->Set(String::NewFromUtf8(isolate,"BrokerID"), String::NewFromUtf8(isolate,pTrade->BrokerID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"InvestorID"), String::NewFromUtf8(isolate,pTrade->InvestorID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"InstrumentID"), String::NewFromUtf8(isolate,pTrade->InstrumentID));
@@ -1435,7 +1435,7 @@ void WrapTrader::pkg_cb_rqtrade(CbRtnField* data, Local<Value>*cbArray) {
     *(cbArray + 2) = jsonRtn;
     }
     else {
-    *(cbArray + 2) = Local<Value>::New(Undefined(isolate));
+    *(cbArray + 2) = Local<Value>::New(isolate,Undefined(isolate));
     }
     *(cbArray + 3) = pkg_rspinfo(data->rspInfo);
     return;
@@ -1443,7 +1443,7 @@ void WrapTrader::pkg_cb_rqtrade(CbRtnField* data, Local<Value>*cbArray) {
 void WrapTrader::pkg_cb_rtntrade(CbRtnField* data, Local<Value>*cbArray) {
     if (data->rtnField){ 
         CThostFtdcTradeField* pTrade = static_cast<CThostFtdcTradeField*>(data->rtnField);
-    Local<Object> jsonRtn = Object::New();
+    Local<Object> jsonRtn = Object::New(isolate);
     jsonRtn->Set(String::NewFromUtf8(isolate,"BrokerID"), String::NewFromUtf8(isolate,pTrade->BrokerID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"InvestorID"), String::NewFromUtf8(isolate,pTrade->InvestorID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"InstrumentID"), String::NewFromUtf8(isolate,pTrade->InstrumentID));
@@ -1477,7 +1477,7 @@ void WrapTrader::pkg_cb_rtntrade(CbRtnField* data, Local<Value>*cbArray) {
     *cbArray = jsonRtn;
     }
     else {
-    *cbArray = Local<Value>::New(Undefined(isolate));
+    *cbArray = Local<Value>::New(isolate,Undefined(isolate));
     }
      
     return;
@@ -1487,7 +1487,7 @@ void WrapTrader::pkg_cb_rqinvestorposition(CbRtnField* data, Local<Value>*cbArra
     *(cbArray + 1) = Boolean::New(isolate,data->bIsLast)->ToBoolean();
     if (data->rtnField){ 
         CThostFtdcInvestorPositionField* _pInvestorPosition = static_cast<CThostFtdcInvestorPositionField*>(data->rtnField);
-    Local<Object> jsonRtn = Object::New();
+    Local<Object> jsonRtn = Object::New(isolate);
     jsonRtn->Set(String::NewFromUtf8(isolate,"InstrumentID"), String::NewFromUtf8(isolate,_pInvestorPosition->InstrumentID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"BrokerID"), String::NewFromUtf8(isolate,_pInvestorPosition->BrokerID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"InvestorID"), String::NewFromUtf8(isolate,_pInvestorPosition->InvestorID)); 
@@ -1531,7 +1531,7 @@ void WrapTrader::pkg_cb_rqinvestorposition(CbRtnField* data, Local<Value>*cbArra
     *(cbArray + 2) = jsonRtn;
     }
     else {
-    *(cbArray + 2) = Local<Value>::New(Undefined(isolate));
+    *(cbArray + 2) = Local<Value>::New(isolate,Undefined(isolate));
     }
     *(cbArray + 3) = pkg_rspinfo(data->rspInfo);
     return;
@@ -1541,7 +1541,7 @@ void WrapTrader::pkg_cb_rqinvestorpositiondetail(CbRtnField* data, Local<Value>*
     *(cbArray + 1) = Boolean::New(isolate,data->bIsLast)->ToBoolean();
     if (data->rtnField){ 
         CThostFtdcInvestorPositionDetailField* pInvestorPositionDetail = static_cast<CThostFtdcInvestorPositionDetailField*>(data->rtnField);
-    Local<Object> jsonRtn = Object::New();
+    Local<Object> jsonRtn = Object::New(isolate);
     jsonRtn->Set(String::NewFromUtf8(isolate,"InstrumentID"), String::NewFromUtf8(isolate,pInvestorPositionDetail->InstrumentID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"BrokerID"), String::NewFromUtf8(isolate,pInvestorPositionDetail->BrokerID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"InvestorID"), String::NewFromUtf8(isolate,pInvestorPositionDetail->InvestorID));
@@ -1571,7 +1571,7 @@ void WrapTrader::pkg_cb_rqinvestorpositiondetail(CbRtnField* data, Local<Value>*
     *(cbArray + 2) = jsonRtn;
     }
     else {
-    *(cbArray + 2) = Local<Value>::New(Undefined(isolate));
+    *(cbArray + 2) = Local<Value>::New(isolate,Undefined(isolate));
     }
     *(cbArray + 3) = pkg_rspinfo(data->rspInfo);
     return;
@@ -1581,7 +1581,7 @@ void WrapTrader::pkg_cb_rqtradingaccount(CbRtnField* data, Local<Value>*cbArray)
     *(cbArray + 1) = Boolean::New(isolate,data->bIsLast)->ToBoolean();
     if (data->rtnField){ 
         CThostFtdcTradingAccountField *pTradingAccount = static_cast<CThostFtdcTradingAccountField*>(data->rtnField);
-    Local<Object> jsonRtn = Object::New();
+    Local<Object> jsonRtn = Object::New(isolate);
     jsonRtn->Set(String::NewFromUtf8(isolate,"BrokerID"), String::NewFromUtf8(isolate,pTradingAccount->BrokerID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"AccountID"), String::NewFromUtf8(isolate,pTradingAccount->AccountID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"PreMortgage"), Number::New(pTradingAccount->PreMortgage));
@@ -1631,7 +1631,7 @@ void WrapTrader::pkg_cb_rqtradingaccount(CbRtnField* data, Local<Value>*cbArray)
     *(cbArray + 2) = jsonRtn;
     }
     else {
-    *(cbArray + 2) = Local<Value>::New(Undefined(isolate));
+    *(cbArray + 2) = Local<Value>::New(isolate,Undefined(isolate));
     }
     *(cbArray + 3) = pkg_rspinfo(data->rspInfo);
     return;
@@ -1641,7 +1641,7 @@ void WrapTrader::pkg_cb_rqinstrument(CbRtnField* data, Local<Value>*cbArray) {
     *(cbArray + 1) = Boolean::New(isolate,data->bIsLast)->ToBoolean();
     if (data->rtnField){ 
         CThostFtdcInstrumentField *pInstrument = static_cast<CThostFtdcInstrumentField*>(data->rtnField);
-    Local<Object> jsonRtn = Object::New();
+    Local<Object> jsonRtn = Object::New(isolate);
     jsonRtn->Set(String::NewFromUtf8(isolate,"InstrumentID"), String::NewFromUtf8(isolate,pInstrument->InstrumentID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ExchangeID"), String::NewFromUtf8(isolate,pInstrument->ExchangeID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"InstrumentName"), String::NewFromUtf8(isolate,pInstrument->InstrumentName));
@@ -1671,7 +1671,7 @@ void WrapTrader::pkg_cb_rqinstrument(CbRtnField* data, Local<Value>*cbArray) {
     *(cbArray + 2) = jsonRtn;
     }
     else {
-    *(cbArray + 2) = Local<Value>::New(Undefined(isolate));
+    *(cbArray + 2) = Local<Value>::New(isolate,Undefined(isolate));
     }
     *(cbArray + 3) = pkg_rspinfo(data->rspInfo);
     return;
@@ -1681,7 +1681,7 @@ void WrapTrader::pkg_cb_rqdepthmarketdata(CbRtnField* data, Local<Value>*cbArray
     *(cbArray + 1) = Boolean::New(isolate,data->bIsLast)->ToBoolean();
     if (data->rtnField){ 
         CThostFtdcDepthMarketDataField *pDepthMarketData = static_cast<CThostFtdcDepthMarketDataField*>(data->rtnField);
-    Local<Object> jsonRtn = Object::New();
+    Local<Object> jsonRtn = Object::New(isolate);
     jsonRtn->Set(String::NewFromUtf8(isolate,"TradingDay"), String::NewFromUtf8(isolate,pDepthMarketData->TradingDay));
     jsonRtn->Set(String::NewFromUtf8(isolate,"InstrumentID"), String::NewFromUtf8(isolate,pDepthMarketData->InstrumentID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"ExchangeID"), String::NewFromUtf8(isolate,pDepthMarketData->ExchangeID));
@@ -1729,7 +1729,7 @@ void WrapTrader::pkg_cb_rqdepthmarketdata(CbRtnField* data, Local<Value>*cbArray
     *(cbArray + 2) = jsonRtn;
     }
     else {
-    *(cbArray + 2) = Local<Value>::New(Undefined(isolate));
+    *(cbArray + 2) = Local<Value>::New(isolate,Undefined(isolate));
     }
     *(cbArray + 3) = pkg_rspinfo(data->rspInfo);
     return;
@@ -1739,7 +1739,7 @@ void WrapTrader::pkg_cb_rqsettlementinfo(CbRtnField* data, Local<Value>*cbArray)
     *(cbArray + 1) = Boolean::New(isolate,data->bIsLast)->ToBoolean();
     if(data->rtnField!=NULL){
         CThostFtdcSettlementInfoField *pSettlementInfo = static_cast<CThostFtdcSettlementInfoField*>(data->rtnField);
-    Local<Object> jsonRtn = Object::New();
+    Local<Object> jsonRtn = Object::New(isolate);
     jsonRtn->Set(String::NewFromUtf8(isolate,"TradingDay"), String::NewFromUtf8(isolate,pSettlementInfo->TradingDay));
     jsonRtn->Set(String::NewFromUtf8(isolate,"SettlementID"), Int32::New(isolate,pSettlementInfo->SettlementID));
     jsonRtn->Set(String::NewFromUtf8(isolate,"BrokerID"), String::NewFromUtf8(isolate,pSettlementInfo->BrokerID));
@@ -1749,7 +1749,7 @@ void WrapTrader::pkg_cb_rqsettlementinfo(CbRtnField* data, Local<Value>*cbArray)
         *(cbArray + 2) = jsonRtn;
     }
     else {
-        *(cbArray + 2) = Local<Value>::New(Undefined(isolate));
+        *(cbArray + 2) = Local<Value>::New(isolate,Undefined(isolate));
     }
     *(cbArray + 3) = pkg_rspinfo(data->rspInfo);
     return;
@@ -1763,12 +1763,12 @@ void WrapTrader::pkg_cb_rsperror(CbRtnField* data, Local<Value>*cbArray) {
 Local<Value> WrapTrader::pkg_rspinfo(void *vpRspInfo) {
     if (vpRspInfo) {
         CThostFtdcRspInfoField *pRspInfo = static_cast<CThostFtdcRspInfoField*>(vpRspInfo);
-    Local<Object> jsonInfo = Object::New();
+    Local<Object> jsonInfo = Object::New(isolate);
     jsonInfo->Set(String::NewFromUtf8(isolate,"ErrorID"), Int32::New(isolate,pRspInfo->ErrorID));
     jsonInfo->Set(String::NewFromUtf8(isolate,"ErrorMsg"), String::NewFromUtf8(isolate,pRspInfo->ErrorMsg));
     return jsonInfo;
     }
     else {
-    return     Local<Value>::New(Undefined(isolate));
+    return     Local<Value>::New(isolate,Undefined(isolate));
     }
 }
