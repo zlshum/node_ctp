@@ -4,8 +4,8 @@
 Persistent<Function> WrapTrader::constructor;
 int WrapTrader::s_uuid;
 std::map<const char*, int,ptrCmp> WrapTrader::event_map;
-std::map<int, Persistent<Function> > WrapTrader::callback_map;
-std::map<int, Persistent<Function> > WrapTrader::fun_rtncb_map;
+//std::map<int, Persistent<Function> > WrapTrader::callback_map(isolate);
+//std::map<int, Persistent<Function> > WrapTrader::fun_rtncb_map(isolate);
 
 Isolate* WrapTrader::isolate = NULL;
 
@@ -20,6 +20,19 @@ WrapTrader::~WrapTrader(void) {
         delete uvTrader;
     }
     logger_cout("wrap_trader------>object destroyed");
+}
+
+
+PersistentValueMap<int, Function ,DefaultPersistentValueMapTraits<int,Function> >&  WrapTrader::callback_map(Isolate* isolate) {
+    static PersistentValueMap<int, Function ,DefaultPersistentValueMapTraits<int,Function> >& local_ref_map_ 
+       = *new PersistentValueMap<int, Function ,DefaultPersistentValueMapTraits<int,Function> >(isolate);
+    return local_ref_map_;
+}
+
+PersistentValueMap<int, Function ,DefaultPersistentValueMapTraits<int,Function> >&  WrapTrader::fun_rtncb_map(Isolate* isolate) {
+    static PersistentValueMap<int, Function ,DefaultPersistentValueMapTraits<int,Function> >& local_ref_fun_map_ 
+       = *new PersistentValueMap<int, Function ,DefaultPersistentValueMapTraits<int,Function> >(isolate);
+    return local_ref_fun_map_;
 }
 
 void WrapTrader::Init(Isolate* iso,int args) {
@@ -136,8 +149,8 @@ void WrapTrader::On(const FunctionCallbackInfo<Value>& args) {
     
     Local<String> eventName = args[0]->ToString();
     Local<Function> cb = Local<Function>::Cast(args[1]);
-    Persistent<Function> unRecoveryCb;
-    unRecoveryCb.Reset(isolate,cb);
+    //Persistent<Function> unRecoveryCb;
+    //unRecoveryCb.Reset(isolate,cb);
     String::Utf8Value eNameAscii(eventName);
 
     std::map<const char*, int>::iterator eIt = event_map.find(*eNameAscii);
@@ -148,15 +161,15 @@ void WrapTrader::On(const FunctionCallbackInfo<Value>& args) {
         return;
     }
 
-    std::map<int, Persistent<Function> >::iterator cIt = callback_map.find(eIt->second);
-    if (cIt != callback_map.end()) {
+    Local<Function> cIt = callback_map(isolate).Get(eIt->second);
+    if (cIt != Undefined(isolate)) {
         logger_cout("Callback is defined before");
         isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Callback is defined before")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
 
-    callback_map[eIt->second] = unRecoveryCb;    
+    callback_map(isolate).Set(eIt->second,cb);    
     obj->uvTrader->On(*eNameAscii,eIt->second, FunCallback);
     args.GetReturnValue().Set(Int32::New(isolate,0));
     return;
@@ -180,7 +193,7 @@ void WrapTrader::Connect(const FunctionCallbackInfo<Value>& args) {
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
     if (!args[4]->IsUndefined() && args[4]->IsFunction()) {
         uuid = ++s_uuid;
-        fun_rtncb_map[uuid].Reset(isolate,Local<Function>::Cast(args[4]));
+        fun_rtncb_map(isolate).Set(uuid,Local<Function>::Cast(args[4]));
         std::string _head = std::string(log);
         logger_cout(_head.append(" uuid is ").append(to_string(uuid)).c_str());
     }
@@ -218,7 +231,7 @@ void WrapTrader::ReqUserLogin(const FunctionCallbackInfo<Value>& args) {
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
     if (!args[3]->IsUndefined() && args[3]->IsFunction()) {
         uuid = ++s_uuid;
-        fun_rtncb_map[uuid].Reset(isolate,Local<Function>::Cast(args[3]));
+        fun_rtncb_map(isolate).Set(uuid,Local<Function>::Cast(args[3]));
         std::string _head = std::string(log);
         logger_cout(_head.append(" uuid is ").append(to_string(uuid)).c_str());
     }
@@ -255,7 +268,7 @@ void WrapTrader::ReqUserLogout(const FunctionCallbackInfo<Value>& args) {
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
     if (!args[2]->IsUndefined() && args[2]->IsFunction()) {
         uuid = ++s_uuid;
-        fun_rtncb_map[uuid].Reset(isolate,Local<Function>::Cast(args[2]));
+        fun_rtncb_map(isolate).Set(uuid,Local<Function>::Cast(args[2]));
         std::string _head = std::string(log);
         logger_cout(_head.append(" uuid is ").append(to_string(uuid)).c_str());
     }
@@ -289,7 +302,7 @@ void WrapTrader::ReqSettlementInfoConfirm(const FunctionCallbackInfo<Value>& arg
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
     if (!args[2]->IsUndefined() && args[2]->IsFunction()) {
         uuid = ++s_uuid;
-        fun_rtncb_map[uuid].Reset(isolate,Local<Function>::Cast(args[2]));
+        fun_rtncb_map(isolate).Set(uuid,Local<Function>::Cast(args[2]));
         std::string _head = std::string(log);
         logger_cout(_head.append(" uuid is ").append(to_string(uuid)).c_str());
     }     
@@ -323,7 +336,7 @@ void WrapTrader::ReqQryInstrument(const FunctionCallbackInfo<Value>& args) {
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
     if (!args[1]->IsUndefined() && args[1]->IsFunction()) {
         uuid = ++s_uuid;
-        fun_rtncb_map[uuid].Reset(isolate, Local<Function>::Cast(args[1]));
+        fun_rtncb_map(isolate).Set(uuid, Local<Function>::Cast(args[1]));
         std::string _head = std::string(log);
         logger_cout(_head.append(" uuid is ").append(to_string(uuid)).c_str());
     }
@@ -354,7 +367,7 @@ void WrapTrader::ReqQryTradingAccount(const FunctionCallbackInfo<Value>& args) {
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
     if (!args[2]->IsUndefined() && args[2]->IsFunction()) {
         uuid = ++s_uuid;
-        fun_rtncb_map[uuid].Reset(isolate,Local<Function>::Cast(args[2]));
+        fun_rtncb_map(isolate).Set(uuid,Local<Function>::Cast(args[2]));
         std::string _head = std::string(log);
         logger_cout(_head.append(" uuid is ").append(to_string(uuid)).c_str());
     }
@@ -387,7 +400,7 @@ void WrapTrader::ReqQryInvestorPosition(const FunctionCallbackInfo<Value>& args)
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
     if (!args[3]->IsUndefined() && args[3]->IsFunction()) {
     uuid = ++s_uuid;
-    fun_rtncb_map[uuid].Reset(isolate, Local<Function>::Cast(args[3]));
+    fun_rtncb_map(isolate).Set(uuid, Local<Function>::Cast(args[3]));
     std::string _head = std::string(log);
     logger_cout(_head.append(" uuid is ").append(to_string(uuid)).c_str());
     }
@@ -425,7 +438,7 @@ void WrapTrader::ReqQryInvestorPositionDetail(const FunctionCallbackInfo<Value>&
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
     if (!args[3]->IsUndefined() && args[3]->IsFunction()) {
         uuid = ++s_uuid;
-        fun_rtncb_map[uuid].Reset(isolate, Local<Function>::Cast(args[3]));
+        fun_rtncb_map(isolate).Set(uuid, Local<Function>::Cast(args[3]));
         std::string _head = std::string(log);
         logger_cout(_head.append(" uuid is ").append(to_string(uuid)).c_str());
     }
@@ -463,7 +476,7 @@ void WrapTrader::ReqOrderInsert(const FunctionCallbackInfo<Value>& args) {
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
     if (!args[1]->IsUndefined() && args[1]->IsFunction()) {
         uuid = ++s_uuid;
-        fun_rtncb_map[uuid].Reset(isolate, Local<Function>::Cast(args[1]));
+        fun_rtncb_map(isolate).Set(uuid, Local<Function>::Cast(args[1]));
         std::string _head = std::string(log);
         logger_cout(_head.append(" uuid is ").append(to_string(uuid)).c_str());
     }
@@ -650,7 +663,7 @@ void WrapTrader::ReqOrderAction(const FunctionCallbackInfo<Value>& args) {
 
     if (!args[1]->IsUndefined() && args[1]->IsFunction()) {
         uuid = ++s_uuid;
-        fun_rtncb_map[uuid].Reset(isolate, Local<Function>::Cast(args[1]));
+        fun_rtncb_map(isolate).Set(uuid, Local<Function>::Cast(args[1]));
         std::string _head = std::string(log);
         logger_cout(_head.append(" uuid is ").append(to_string(uuid)).c_str());
     }
@@ -751,7 +764,7 @@ void WrapTrader::ReqQryInstrumentMarginRate(const FunctionCallbackInfo<Value>& a
 
     if (!args[4]->IsUndefined() && args[4]->IsFunction()) {
     uuid = ++s_uuid;
-    fun_rtncb_map[uuid].Reset(isolate,Local<Function>::Cast(args[4]));
+    fun_rtncb_map(isolate).Set(uuid,Local<Function>::Cast(args[4]));
     std::string _head = std::string(log);
     logger_cout(_head.append(" uuid is ").append(to_string(uuid)).c_str());
     }
@@ -796,7 +809,7 @@ void WrapTrader::ReqQryDepthMarketData(const FunctionCallbackInfo<Value>& args) 
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
     if (!args[1]->IsUndefined() && args[1]->IsFunction()) {
         uuid = ++s_uuid;
-        fun_rtncb_map[uuid].Reset(isolate, Local<Function>::Cast(args[1]));
+        fun_rtncb_map(isolate).Set(uuid, Local<Function>::Cast(args[1]));
         std::string _head = std::string(log);
         logger_cout(_head.append(" uuid is ").append(to_string(uuid)).c_str());
     }
@@ -829,7 +842,7 @@ void WrapTrader::ReqQrySettlementInfo(const FunctionCallbackInfo<Value>& args) {
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
     if (!args[3]->IsUndefined() && args[3]->IsFunction()) {
     uuid = ++s_uuid;
-    fun_rtncb_map[uuid].Reset(isolate,Local<Function>::Cast(args[3]));
+    fun_rtncb_map(isolate).Set(uuid,Local<Function>::Cast(args[3]));
     std::string _head = std::string(log);
     logger_cout(_head.append(" uuid is ").append(to_string(uuid)).c_str());
     }
@@ -859,16 +872,16 @@ void WrapTrader::ReqQrySettlementInfo(const FunctionCallbackInfo<Value>& args) {
 void WrapTrader::Disposed(const FunctionCallbackInfo<Value>& args) {
     Isolate* isolate = args.GetIsolate();
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
-    obj->uvTrader->Disconnect();    
-    std::map<int, Persistent<Function> >::iterator callback_it = callback_map.begin();
-    while (callback_it != callback_map.end()) {
-    //zhangls thinkagain
+    obj->uvTrader->Disconnect();
+    //zhangls clear is enouh  
+    //Local<Function> callback_it = callback_map(isolate).begin();
+    //while (callback_it != Undefined(isolate)) {
     //callback_it->second.Dispose();
-    callback_it++;
-    }
+    //callback_it++;
+    //}
     event_map.clear();
-    callback_map.clear();
-    fun_rtncb_map.clear();
+    callback_map(isolate).Clear();
+    fun_rtncb_map(isolate).Clear();
     delete obj->uvTrader;
     obj->uvTrader = NULL;
     logger_cout("wrap_trader Disposed------>wrap disposed");
@@ -886,9 +899,9 @@ void WrapTrader::GetTradingDay(const FunctionCallbackInfo<Value>& args){
 }
 
 void WrapTrader::FunCallback(CbRtnField *data) {
-    std::map<int, Persistent<Function> >::iterator cIt = callback_map.find(data->eFlag);
-    if (cIt == callback_map.end())
-    return;
+    Local<Function> cIt = callback_map(isolate).Get(data->eFlag);
+    if (cIt == Undefined(isolate))
+       return;
 
 //zhangls thinkagain
 /*
@@ -1048,14 +1061,14 @@ void WrapTrader::FunCallback(CbRtnField *data) {
 void WrapTrader::FunRtnCallback(int result, void* baton) {
     LookupCtpApiBaton* tmp = static_cast<LookupCtpApiBaton*>(baton);     
     if (tmp->uuid != -1) {
-    std::map<int, Persistent<Function> >::iterator it = fun_rtncb_map.find(tmp->uuid);
+    Local<Function> it = fun_rtncb_map(isolate).Get(tmp->uuid);
     Local<Value> argv[2] = { Local<Value>::New(isolate,Int32::New(isolate,tmp->nResult)),Local<Value>::New(isolate,Int32::New(isolate,tmp->iRequestID)) };
     //zhangls thinkagain
 /*
     it->second->Call(Context::GetCurrent()->Global(), 2, argv);
     it->second.Dispose();
 */
-    fun_rtncb_map.erase(tmp->uuid);          
+    fun_rtncb_map(isolate).Remove(tmp->uuid);          
     }
 }
 
