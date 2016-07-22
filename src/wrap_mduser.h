@@ -14,6 +14,7 @@
 #include "uv_mduser.h"
 
 #include "node_object_wrap.h"
+#include <v8-util.h>
 
 using namespace v8;
 
@@ -54,8 +55,10 @@ private:
     static void FunRtnCallback(int result, void* baton);
     static Persistent<Function> constructor;
     static std::map<const char*, int,ptrCmp> event_map;
-    static std::map<int, Persistent<Function> > callback_map;
-    static std::map<int, Persistent<Function> > fun_rtncb_map;
+
+    //using local static instead
+    static PersistentValueMap<int, Function ,DefaultPersistentValueMapTraits<int,Function> >&  callback_map(Isolate*);
+    static PersistentValueMap<int, Function ,DefaultPersistentValueMapTraits<int,Function> >&  fun_rtncb_map(Isolate*);     
 };
 
 
