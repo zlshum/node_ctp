@@ -407,11 +407,7 @@ void WrapMdUser::FunRtnCallback(int result, void* baton) {
     if (tmp->uuid != -1) {
         Local<Function> it = fun_rtncb_map(isolate).Get(tmp->uuid);
         Local<Value> argv[1] = { Local<Value>::New(isolate,Int32::New(isolate,tmp->nResult)) };
-        //zhangls thinkagain
-/*
-        it->second->Call(Context::GetCurrent()->Global(), 1, argv);
-        it->second.Dispose();
-*/
+        it->Call(isolate->GetCurrentContext()->Global(), 1, argv);
         fun_rtncb_map(isolate).Remove(tmp->uuid);
     }
 }

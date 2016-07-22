@@ -893,8 +893,7 @@ void WrapTrader::GetTradingDay(const FunctionCallbackInfo<Value>& args){
     Isolate* isolate = args.GetIsolate();
     WrapTrader* obj = ObjectWrap::Unwrap<WrapTrader>(args.This());
     const char* tradingDay = obj->uvTrader->GetTradingDay();
-    //zhangls thinkagain
-    //args.GetReturnValue().Set(isolate,String::NewFromUtf8(isolate,tradingDay));
+    args.GetReturnValue().Set(String::NewFromUtf8(isolate,tradingDay));
     return;
 }
 
@@ -1063,11 +1062,7 @@ void WrapTrader::FunRtnCallback(int result, void* baton) {
     if (tmp->uuid != -1) {
     Local<Function> it = fun_rtncb_map(isolate).Get(tmp->uuid);
     Local<Value> argv[2] = { Local<Value>::New(isolate,Int32::New(isolate,tmp->nResult)),Local<Value>::New(isolate,Int32::New(isolate,tmp->iRequestID)) };
-    //zhangls thinkagain
-/*
-    it->second->Call(Context::GetCurrent()->Global(), 2, argv);
-    it->second.Dispose();
-*/
+    it->Call(isolate->GetCurrentContext()->Global(), 2, argv);
     fun_rtncb_map(isolate).Remove(tmp->uuid);          
     }
 }
