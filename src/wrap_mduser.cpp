@@ -1,13 +1,13 @@
 #include <node.h>
 #include "wrap_mduser.h"
 
-Persistent<Function> WrapMdUser::constructor;
+Persistent <Function> WrapMdUser::constructor;
 int WrapMdUser::s_uuid;
-std::map<const char*, int,ptrCmp> WrapMdUser::event_map;
+std::map<const char *, int, ptrCmp> WrapMdUser::event_map;
 //std::map<int, Persistent<Function> > WrapMdUser::callback_map;
 //std::map<int, Persistent<Function> > WrapMdUser::fun_rtncb_map;
 
-Isolate* WrapMdUser::isolate = NULL;
+Isolate *WrapMdUser::isolate = NULL;
 
 WrapMdUser::WrapMdUser() {
     logger_cout("wrap_mduser------>object start init");
@@ -16,53 +16,59 @@ WrapMdUser::WrapMdUser() {
 }
 
 WrapMdUser::~WrapMdUser() {
-    if(uvMdUser){
+    if (uvMdUser) {
         delete uvMdUser;
     }
     logger_cout("wrape_mduser------>object destroyed");
 }
 
 
-PersistentValueMap<int, Function ,DefaultPersistentValueMapTraits<int,Function> >&  WrapMdUser::callback_map(Isolate* isolate) {
-    static PersistentValueMap<int, Function ,DefaultPersistentValueMapTraits<int,Function> >& local_ref_map_ 
-       = *new PersistentValueMap<int, Function ,DefaultPersistentValueMapTraits<int,Function> >(isolate);
+PersistentValueMap <int, Function, DefaultPersistentValueMapTraits<int, Function>> &WrapMdUser::callback_map(
+        Isolate * isolate) {
+    static PersistentValueMap <int, Function, DefaultPersistentValueMapTraits<int, Function>> &local_ref_map_
+            = *new PersistentValueMap <int, Function, DefaultPersistentValueMapTraits<int, Function>>(
+                    isolate);
     return local_ref_map_;
 }
 
-PersistentValueMap<int, Function ,DefaultPersistentValueMapTraits<int,Function> >&  WrapMdUser::fun_rtncb_map(Isolate* isolate) {
-    static PersistentValueMap<int, Function ,DefaultPersistentValueMapTraits<int,Function> >& local_ref_fun_map_ 
-       = *new PersistentValueMap<int, Function ,DefaultPersistentValueMapTraits<int,Function> >(isolate);
+PersistentValueMap <int, Function, DefaultPersistentValueMapTraits<int, Function>> &WrapMdUser::fun_rtncb_map(
+        Isolate * isolate) {
+    static PersistentValueMap <int, Function, DefaultPersistentValueMapTraits<int, Function>> &local_ref_fun_map_
+            = *new PersistentValueMap <int, Function, DefaultPersistentValueMapTraits<int, Function>>(
+                    isolate);
     return local_ref_fun_map_;
 }
 
-void WrapMdUser::Init(Isolate* iso,int args) {
+void WrapMdUser::Init(Isolate *iso, int args) {
     isolate = iso;
-    Local<FunctionTemplate> tpl = FunctionTemplate::New(isolate,New);
-    tpl->SetClassName(String::NewFromUtf8(isolate,"WrapMdUser"));
+    Local <FunctionTemplate> tpl = FunctionTemplate::New(isolate, New);
+    tpl->SetClassName(String::NewFromUtf8(isolate, "WrapMdUser"));
     tpl->InstanceTemplate()->SetInternalFieldCount(1);
     // Prototype
-    tpl->PrototypeTemplate()->Set(String::NewFromUtf8(isolate,"on"),
-        FunctionTemplate::New(isolate,On)->GetFunction());
+    tpl->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "on"),
+                                  FunctionTemplate::New(isolate, On)->GetFunction());
 
-    tpl->PrototypeTemplate()->Set(String::NewFromUtf8(isolate,"connect"),
-        FunctionTemplate::New(isolate,Connect)->GetFunction());
+    tpl->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "connect"),
+                                  FunctionTemplate::New(isolate, Connect)->GetFunction());
 
-    tpl->PrototypeTemplate()->Set(String::NewFromUtf8(isolate,"reqUserLogin"),
-        FunctionTemplate::New(isolate,ReqUserLogin)->GetFunction());
+    tpl->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "reqUserLogin"),
+                                  FunctionTemplate::New(isolate, ReqUserLogin)->GetFunction());
 
-    tpl->PrototypeTemplate()->Set(String::NewFromUtf8(isolate,"reqUserLogout"),
-        FunctionTemplate::New(isolate,ReqUserLogout)->GetFunction());
+    tpl->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "reqUserLogout"),
+                                  FunctionTemplate::New(isolate, ReqUserLogout)->GetFunction());
 
-    tpl->PrototypeTemplate()->Set(String::NewFromUtf8(isolate,"subscribeMarketData"),
-        FunctionTemplate::New(isolate,SubscribeMarketData)->GetFunction());
+    tpl->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "subscribeMarketData"),
+                                  FunctionTemplate::New(isolate,
+                                                        SubscribeMarketData)->GetFunction());
 
-    tpl->PrototypeTemplate()->Set(String::NewFromUtf8(isolate,"unSubscribeMarketData"),
-        FunctionTemplate::New(isolate,UnSubscribeMarketData)->GetFunction());    
+    tpl->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "unSubscribeMarketData"),
+                                  FunctionTemplate::New(isolate,
+                                                        UnSubscribeMarketData)->GetFunction());
 
-    tpl->PrototypeTemplate()->Set(String::NewFromUtf8(isolate,"disconnect"),
-        FunctionTemplate::New(isolate,Disposed)->GetFunction());
+    tpl->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "disconnect"),
+                                  FunctionTemplate::New(isolate, Disposed)->GetFunction());
 
-    constructor.Reset(isolate,tpl->GetFunction());
+    constructor.Reset(isolate, tpl->GetFunction());
 }
 
 void WrapMdUser::initEventMap() {
@@ -76,85 +82,90 @@ void WrapMdUser::initEventMap() {
     event_map["rspError"] = T_ON_RSPERROR;
 }
 
-void WrapMdUser::New(const FunctionCallbackInfo<Value>& args) {
-    Isolate* isolate = args.GetIsolate();
+void WrapMdUser::New(const FunctionCallbackInfo <Value> &args) {
+    Isolate *isolate = args.GetIsolate();
 
     if (event_map.size() == 0)
         initEventMap();
-    WrapMdUser* obj = new WrapMdUser();
+    WrapMdUser *obj = new WrapMdUser();
     obj->Wrap(args.This());
     args.GetReturnValue().Set(args.This());
 }
 
-void WrapMdUser::NewInstance(const FunctionCallbackInfo<Value>& args) {
-    Isolate* isolate = args.GetIsolate();
+void WrapMdUser::NewInstance(const FunctionCallbackInfo <Value> &args) {
+    Isolate *isolate = args.GetIsolate();
 
     const unsigned argc = 1;
-    Local<Value> argv[argc] = { args[0] };
-    Local<Function> cons = Local<Function>::New(isolate, constructor);
-    Local<Context> context = isolate->GetCurrentContext();
-    Local<Object> instance = cons->NewInstance(context, argc, argv).ToLocalChecked();
+    Local <Value> argv[argc] = {args[0]};
+    Local <Function> cons = Local<Function>::New(isolate, constructor);
+    Local <Context> context = isolate->GetCurrentContext();
+    Local <Object> instance = cons->NewInstance(context, argc, argv).ToLocalChecked();
     args.GetReturnValue().Set(instance);
 }
 
-void WrapMdUser::On(const FunctionCallbackInfo<Value>& args) {
-    Isolate* isolate = args.GetIsolate();
+void WrapMdUser::On(const FunctionCallbackInfo <Value> &args) {
+    Isolate *isolate = args.GetIsolate();
     if (args[0]->IsUndefined() || args[1]->IsUndefined()) {
         logger_cout("Wrong FunctionCallbackInfo<Value>->event name or function");
-        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->event name or function")));
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,
+                                                                         "Wrong FunctionCallbackInfo<Value>->event name or function")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
 
-    WrapMdUser* obj = ObjectWrap::Unwrap<WrapMdUser>(args.This());
+    WrapMdUser *obj = ObjectWrap::Unwrap<WrapMdUser>(args.This());
 
-    Local<String> eventName = args[0]->ToString();
-    Local<Function> cb = Local<Function>::Cast(args[1]);
+    Local <String> eventName = args[0]->ToString();
+    Local <Function> cb = Local<Function>::Cast(args[1]);
     //Persistent<Function> unRecoveryCb;// = PersistentBase<Function>::New(isolate,cb);
     //unRecoveryCb.Reset(isolate,cb);
 
     String::Utf8Value eNameAscii(eventName);
 
-    std::map<const char*, int>::iterator eIt = event_map.find(*eNameAscii);
+    std::map<const char *, int>::iterator eIt = event_map.find(*eNameAscii);
     if (eIt == event_map.end()) {
-        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"System has no register this event")));
+        isolate->ThrowException(Exception::TypeError(
+                String::NewFromUtf8(isolate, "System has no register this event")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
-    Local<Function> cIt = callback_map(isolate).Get(eIt->second);
+    Local <Function> cIt = callback_map(isolate).Get(eIt->second);
     if (cIt != Undefined(isolate)) {
         logger_cout("Callback is defined before");
-        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Callback is defined before")));
+        isolate->ThrowException(
+                Exception::TypeError(String::NewFromUtf8(isolate, "Callback is defined before")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
 
     callback_map(isolate).Set(eIt->second, cb);
-    obj->uvMdUser->On(*eNameAscii,eIt->second, FunCallback);
-    args.GetReturnValue().Set(Int32::New(isolate,0));
+    obj->uvMdUser->On(*eNameAscii, eIt->second, FunCallback);
+    args.GetReturnValue().Set(Int32::New(isolate, 0));
     return;
 }
 
-void WrapMdUser::Connect(const FunctionCallbackInfo<Value>& args) {
-    Isolate* isolate = args.GetIsolate();
+void WrapMdUser::Connect(const FunctionCallbackInfo <Value> &args) {
+    Isolate *isolate = args.GetIsolate();
     std::string log = "wrap_mduser Connect------>";
     if (args[0]->IsUndefined()) {
         logger_cout("Wrong FunctionCallbackInfo<Value>->front addr");
-        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>->front addr")));
+        isolate->ThrowException(Exception::TypeError(
+                String::NewFromUtf8(isolate, "Wrong FunctionCallbackInfo<Value>->front addr")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
-    }    
+    }
     int uuid = -1;
-    WrapMdUser* obj = ObjectWrap::Unwrap<WrapMdUser>(args.This());
+    WrapMdUser *obj = ObjectWrap::Unwrap<WrapMdUser>(args.This());
     if (!args[2]->IsUndefined() && args[2]->IsFunction()) {
         uuid = ++s_uuid;
-        fun_rtncb_map(isolate).Set(uuid,Local<Function>::Cast(args[2]));
+        fun_rtncb_map(isolate).Set(uuid, Local<Function>::Cast(args[2]));
         std::string _head = std::string(log);
         logger_cout(_head.append(" uuid is ").append(to_string(uuid)).c_str());
     }
 
-    Local<String> frontAddr = args[0]->ToString();
-    Local<String> szPath = args[1]->IsUndefined() ? String::NewFromUtf8(isolate,"m") : args[0]->ToString();
+    Local <String> frontAddr = args[0]->ToString();
+    Local <String> szPath = args[1]->IsUndefined() ? String::NewFromUtf8(isolate, "m")
+                                                   : args[0]->ToString();
     String::Utf8Value addrAscii(frontAddr);
     String::Utf8Value pathAscii(szPath);
 
@@ -167,30 +178,31 @@ void WrapMdUser::Connect(const FunctionCallbackInfo<Value>& args) {
     return;
 }
 
-void WrapMdUser::ReqUserLogin(const FunctionCallbackInfo<Value>& args) {
-    Isolate* isolate = args.GetIsolate();
+void WrapMdUser::ReqUserLogin(const FunctionCallbackInfo <Value> &args) {
+    Isolate *isolate = args.GetIsolate();
     std::string log = "wrap_mduser ReqUserLogin------>";
     if (args[0]->IsUndefined() || args[1]->IsUndefined() || args[2]->IsUndefined()) {
         std::string _head = std::string(log);
         logger_cout(_head.append(" Wrong FunctionCallbackInfo<Value>").c_str());
-        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>")));
-                args.GetReturnValue().Set(Undefined(isolate));
+        isolate->ThrowException(Exception::TypeError(
+                String::NewFromUtf8(isolate, "Wrong FunctionCallbackInfo<Value>")));
+        args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
 
     int uuid = -1;
-    WrapMdUser* obj = ObjectWrap::Unwrap<WrapMdUser>(args.This());
+    WrapMdUser *obj = ObjectWrap::Unwrap<WrapMdUser>(args.This());
     if (!args[3]->IsUndefined() && args[3]->IsFunction()) {
         uuid = ++s_uuid;
         //fun_rtncb_map(isolate)[uuid] = Persistent<Function>::New(Local<Function>::Cast(args[3]));
-        fun_rtncb_map(isolate).Set(uuid,Local<Function>::Cast(args[3]));
+        fun_rtncb_map(isolate).Set(uuid, Local<Function>::Cast(args[3]));
         std::string _head = std::string(log);
         logger_cout(_head.append(" uuid is ").append(to_string(uuid)).c_str());
     }
 
-    Local<String> broker = args[0]->ToString();
-    Local<String> userId = args[1]->ToString();
-    Local<String> pwd = args[2]->ToString();
+    Local <String> broker = args[0]->ToString();
+    Local <String> userId = args[1]->ToString();
+    Local <String> pwd = args[2]->ToString();
     String::Utf8Value brokerAscii(broker);
     String::Utf8Value userIdAscii(userId);
     String::Utf8Value pwdAscii(pwd);
@@ -205,19 +217,20 @@ void WrapMdUser::ReqUserLogin(const FunctionCallbackInfo<Value>& args) {
     return;
 }
 
-void WrapMdUser::ReqUserLogout(const FunctionCallbackInfo<Value>& args) {
-    Isolate* isolate = args.GetIsolate();
+void WrapMdUser::ReqUserLogout(const FunctionCallbackInfo <Value> &args) {
+    Isolate *isolate = args.GetIsolate();
     std::string log = "wrap_mduser ReqUserLogout------>";
 
     if (args[0]->IsUndefined() || args[1]->IsUndefined()) {
         std::string _head = std::string(log);
         logger_cout(_head.append(" Wrong FunctionCallbackInfo<Value>").c_str());
-        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>")));
+        isolate->ThrowException(Exception::TypeError(
+                String::NewFromUtf8(isolate, "Wrong FunctionCallbackInfo<Value>")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
     int uuid = -1;
-    WrapMdUser* obj = ObjectWrap::Unwrap<WrapMdUser>(args.This());
+    WrapMdUser *obj = ObjectWrap::Unwrap<WrapMdUser>(args.This());
     if (!args[2]->IsUndefined() && args[2]->IsFunction()) {
         uuid = ++s_uuid;
         fun_rtncb_map(isolate).Set(uuid, Local<Function>::Cast(args[2]));
@@ -225,8 +238,8 @@ void WrapMdUser::ReqUserLogout(const FunctionCallbackInfo<Value>& args) {
         logger_cout(_head.append(" uuid is ").append(to_string(uuid)).c_str());
     }
 
-    Local<String> broker = args[0]->ToString();
-    Local<String> userId = args[1]->ToString();
+    Local <String> broker = args[0]->ToString();
+    Local <String> userId = args[1]->ToString();
     String::Utf8Value brokerAscii(broker);
     String::Utf8Value userIdAscii(userId);
 
@@ -239,32 +252,33 @@ void WrapMdUser::ReqUserLogout(const FunctionCallbackInfo<Value>& args) {
     return;
 }
 
-void WrapMdUser::SubscribeMarketData(const FunctionCallbackInfo<Value>& args) {
-    Isolate* isolate = args.GetIsolate();
+void WrapMdUser::SubscribeMarketData(const FunctionCallbackInfo <Value> &args) {
+    Isolate *isolate = args.GetIsolate();
     std::string log = "wrap_mduser SubscribeMarketData------>";
 
     if (args[0]->IsUndefined() || !args[0]->IsArray()) {
         std::string _head = std::string(log);
         logger_cout(_head.append(" Wrong FunctionCallbackInfo<Value>").c_str());
-        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>")));
+        isolate->ThrowException(Exception::TypeError(
+                String::NewFromUtf8(isolate, "Wrong FunctionCallbackInfo<Value>")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
     int uuid = -1;
-    WrapMdUser* obj = ObjectWrap::Unwrap<WrapMdUser>(args.This());
+    WrapMdUser *obj = ObjectWrap::Unwrap<WrapMdUser>(args.This());
     if (!args[1]->IsUndefined() && args[1]->IsFunction()) {
         uuid = ++s_uuid;
-        fun_rtncb_map(isolate).Set(uuid,Local<Function>::Cast(args[1]));
+        fun_rtncb_map(isolate).Set(uuid, Local<Function>::Cast(args[1]));
         std::string _head = std::string(log);
         logger_cout(_head.append(" uuid is ").append(to_string(uuid)).c_str());
-    } 
-    Local<v8::Array> instrumentIDs = Local<v8::Array>::Cast(args[0]);
-    char** idArray = new char*[instrumentIDs->Length()];
-    
+    }
+    Local <v8::Array> instrumentIDs = Local<v8::Array>::Cast(args[0]);
+    char **idArray = new char *[instrumentIDs->Length()];
+
     for (uint32_t i = 0; i < instrumentIDs->Length(); i++) {
-        Local<String> instrumentId = instrumentIDs->Get(i)->ToString();
-        String::Utf8Value idAscii(instrumentId);           
-        char* id = new char[instrumentId->Length() + 1];
+        Local <String> instrumentId = instrumentIDs->Get(i)->ToString();
+        String::Utf8Value idAscii(instrumentId);
+        char *id = new char[instrumentId->Length() + 1];
         strcpy(id, *idAscii);
         idArray[i] = id;
         log.append(*idAscii).append("|");
@@ -276,52 +290,53 @@ void WrapMdUser::SubscribeMarketData(const FunctionCallbackInfo<Value>& args) {
     return;
 }
 
-void WrapMdUser::UnSubscribeMarketData(const FunctionCallbackInfo<Value>& args) {
-    Isolate* isolate = args.GetIsolate();
+void WrapMdUser::UnSubscribeMarketData(const FunctionCallbackInfo <Value> &args) {
+    Isolate *isolate = args.GetIsolate();
     std::string log = "wrap_mduser UnSubscribeMarketData------>";
 
     if (args[0]->IsUndefined() || !args[0]->IsArray()) {
         std::string _head = std::string(log);
         logger_cout(_head.append(" Wrong FunctionCallbackInfo<Value>").c_str());
-        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Wrong FunctionCallbackInfo<Value>")));
+        isolate->ThrowException(Exception::TypeError(
+                String::NewFromUtf8(isolate, "Wrong FunctionCallbackInfo<Value>")));
         args.GetReturnValue().Set(Undefined(isolate));
         return;
     }
     int uuid = -1;
-    WrapMdUser* obj = ObjectWrap::Unwrap<WrapMdUser>(args.This());
+    WrapMdUser *obj = ObjectWrap::Unwrap<WrapMdUser>(args.This());
     if (!args[1]->IsUndefined() && args[1]->IsFunction()) {
         uuid = ++s_uuid;
         //fun_rtncb_map(isolate)[uuid] = Persistent<Function>::New(Local<Function>::Cast(args[1]));
-        fun_rtncb_map(isolate).Set(uuid,Local<Function>::Cast(args[1]));
+        fun_rtncb_map(isolate).Set(uuid, Local<Function>::Cast(args[1]));
         std::string _head = std::string(log);
         logger_cout(_head.append(" uuid is ").append(to_string(uuid)).c_str());
     }
-    Local<v8::Array> instrumentIDs = Local<v8::Array>::Cast(args[0]);
-    char** idArray = new char*[instrumentIDs->Length()];
+    Local <v8::Array> instrumentIDs = Local<v8::Array>::Cast(args[0]);
+    char **idArray = new char *[instrumentIDs->Length()];
 
     for (uint32_t i = 0; i < instrumentIDs->Length(); i++) {
-        Local<String> instrumentId = instrumentIDs->Get(i)->ToString();
+        Local <String> instrumentId = instrumentIDs->Get(i)->ToString();
         String::Utf8Value idAscii(instrumentId);
-        char* id = new char[instrumentId->Length() + 1];
+        char *id = new char[instrumentId->Length() + 1];
         strcpy(id, *idAscii);
         idArray[i] = id;
         log.append(*idAscii).append("|");
     }
     logger_cout(log.c_str());
     obj->uvMdUser->UnSubscribeMarketData(idArray, instrumentIDs->Length(), FunRtnCallback, uuid);
-            args.GetReturnValue().Set(Undefined(isolate));
-        return;     
+    args.GetReturnValue().Set(Undefined(isolate));
+    return;
 }
 
-void WrapMdUser::Disposed(const FunctionCallbackInfo<Value>& args) {
-    Isolate* isolate = args.GetIsolate();
-    WrapMdUser* obj = ObjectWrap::Unwrap<WrapMdUser>(args.This());
+void WrapMdUser::Disposed(const FunctionCallbackInfo <Value> &args) {
+    Isolate *isolate = args.GetIsolate();
+    WrapMdUser *obj = ObjectWrap::Unwrap<WrapMdUser>(args.This());
     obj->uvMdUser->Disposed();
     //using Clear instead
     //Local<Function> callback_it = callback_map(isolate).begin();
     //while (callback_it != Undefined(isolate)) {
-        //callback_it->second.Dispose();
-        //callback_it++;
+    //callback_it->second.Dispose();
+    //callback_it++;
     //}
     event_map.clear();
     callback_map(isolate).Clear();
@@ -337,233 +352,290 @@ void WrapMdUser::Disposed(const FunctionCallbackInfo<Value>& args) {
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
 void WrapMdUser::FunCallback(CbRtnField *data) {
-    Local<Function> cIt = callback_map(isolate).Get(data->eFlag);
+    Local <Function> cIt = callback_map(isolate).Get(data->eFlag);
     if (cIt == Undefined(isolate))
         return;
 
-//zhangls thinkagain
-/*
     switch (data->eFlag) {
-    case T_ON_CONNECT:
-    {
-         Local<Value> argv[1] = { Local<Value>::New(isolate,Undefined(isolate)) };
-         cIt->second->Call(Context::GetCurrent()->Global(), 1, argv);
-         break;
-    }
-    case T_ON_DISCONNECTED:
-    {
-                              Local<Value> argv[1] = { Int32::New(isolate,data->nReason) };
-                              cIt->second->Call(Context::GetCurrent()->Global(), 1, argv);
-                              break;
-    }
-    case T_ON_RSPUSERLOGIN:
-    {
-                              Local<Value> argv[4];
-                              pkg_cb_userlogin(data, argv);
-                              cIt->second->Call(Context::GetCurrent()->Global(), 4, argv);
-                              break;
-    }
-    case T_ON_RSPUSERLOGOUT:
-    {
-                               Local<Value> argv[4];
-                               pkg_cb_userlogout(data, argv);
-                               cIt->second->Call(Context::GetCurrent()->Global(), 4, argv);
-                               break;
-    }
-    case T_ON_RSPSUBMARKETDATA:
-    {
-                                  Local<Value> argv[4];
-                                  pkg_cb_rspsubmarketdata(data, argv);
-                                  cIt->second->Call(Context::GetCurrent()->Global(), 4, argv);
-                                  break;
-    }
-    case T_ON_RSPUNSUBMARKETDATA:
-    {
-                                    Local<Value> argv[4];
-                                    pkg_cb_unrspsubmarketdata(data, argv);
-                                    cIt->second->Call(Context::GetCurrent()->Global(), 4, argv);
-                                    break;
-    }
-    case T_ON_RTNDEPTHMARKETDATA:
-    {
-                                    Local<Value> argv[1];
-                                    pkg_cb_rtndepthmarketdata(data, argv);
-                                    cIt->second->Call(Context::GetCurrent()->Global(), 1, argv);
-                                    break;
-    }
-    case T_ON_RSPERROR:
-    {
-                          Local<Value> argv[3];
-                          pkg_cb_rsperror(data, argv);
-                          cIt->second->Call(Context::GetCurrent()->Global(), 3, argv);
+        case T_ON_CONNECT: {
+            Local <Value> argv[1] = {Local<Value>::New(isolate, Undefined(isolate))};
+            cIt->Call(isolate->GetCurrentContext()->Global(), 1, argv);
+            break;
+        }
+        case T_ON_DISCONNECTED: {
+            Local <Value> argv[1] = {Int32::New(isolate, data->nReason)};
+            cIt->Call(isolate->GetCurrentContext()->Global(), 1, argv);
+            break;
+        }
+        case T_ON_RSPUSERLOGIN: {
+            Local <Value> argv[4];
+            pkg_cb_userlogin(data, argv);
+            cIt->Call(isolate->GetCurrentContext()->Global(), 4, argv);
+            break;
+        }
+        case T_ON_RSPUSERLOGOUT: {
+            Local <Value> argv[4];
+            pkg_cb_userlogout(data, argv);
+            cIt->Call(isolate->GetCurrentContext()->Global(), 4, argv);
+            break;
+        }
+        case T_ON_RSPSUBMARKETDATA: {
+            Local <Value> argv[4];
+            pkg_cb_rspsubmarketdata(data, argv);
+            cIt->Call(isolate->GetCurrentContext()->Global(), 4, argv);
+            break;
+        }
+        case T_ON_RSPUNSUBMARKETDATA: {
+            Local <Value> argv[4];
+            pkg_cb_unrspsubmarketdata(data, argv);
+            cIt->Call(isolate->GetCurrentContext()->Global(), 4, argv);
+            break;
+        }
+        case T_ON_RTNDEPTHMARKETDATA: {
+            Local <Value> argv[1];
+            pkg_cb_rtndepthmarketdata(data, argv);
+            cIt->Call(isolate->GetCurrentContext()->Global(), 1, argv);
+            break;
+        }
+        case T_ON_RSPERROR: {
+            Local <Value> argv[3];
+            pkg_cb_rsperror(data, argv);
+            cIt->Call(isolate->GetCurrentContext()->Global(), 3, argv);
 
-                          break;
+            break;
+        }
     }
-    }
-*/
 }
-void WrapMdUser::FunRtnCallback(int result, void* baton) {
-    LookupCtpApiBaton* tmp = static_cast<LookupCtpApiBaton*>(baton);
+
+void WrapMdUser::FunRtnCallback(int result, void *baton) {
+    LookupCtpApiBaton *tmp = static_cast<LookupCtpApiBaton *>(baton);
     if (tmp->uuid != -1) {
-        Local<Function> it = fun_rtncb_map(isolate).Get(tmp->uuid);
-        Local<Value> argv[1] = { Local<Value>::New(isolate,Int32::New(isolate,tmp->nResult)) };
+        Local <Function> it = fun_rtncb_map(isolate).Get(tmp->uuid);
+        Local <Value> argv[1] = {Local<Value>::New(isolate, Int32::New(isolate, tmp->nResult))};
         it->Call(isolate->GetCurrentContext()->Global(), 1, argv);
         fun_rtncb_map(isolate).Remove(tmp->uuid);
     }
 }
 
 
-void WrapMdUser::pkg_cb_userlogin(CbRtnField* data, Local<Value>*cbArray) {
-    *cbArray = Int32::New(isolate,data->nRequestID);
-    *(cbArray + 1) = Boolean::New(isolate,data->bIsLast)->ToBoolean();
-    CThostFtdcRspUserLoginField* pRspUserLogin = static_cast<CThostFtdcRspUserLoginField*>(data->rtnField);
-    CThostFtdcRspInfoField *pRspInfo = static_cast<CThostFtdcRspInfoField*>(data->rspInfo);
+void WrapMdUser::pkg_cb_userlogin(CbRtnField *data, Local <Value> *cbArray) {
+    *cbArray = Int32::New(isolate, data->nRequestID);
+    *(cbArray + 1) = Boolean::New(isolate, data->bIsLast)->ToBoolean();
+    CThostFtdcRspUserLoginField *pRspUserLogin = static_cast<CThostFtdcRspUserLoginField *>(data->rtnField);
+    CThostFtdcRspInfoField *pRspInfo = static_cast<CThostFtdcRspInfoField *>(data->rspInfo);
     if (pRspUserLogin) {
-        Local<Object> jsonRtn = Object::New(isolate);
-        jsonRtn->Set(String::NewFromUtf8(isolate,"TradingDay"), String::NewFromUtf8(isolate,pRspUserLogin->TradingDay));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"LoginTime"), String::NewFromUtf8(isolate,pRspUserLogin->LoginTime));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"BrokerID"), String::NewFromUtf8(isolate,pRspUserLogin->BrokerID));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"UserID"), String::NewFromUtf8(isolate,pRspUserLogin->UserID));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"SystemName"), String::NewFromUtf8(isolate,pRspUserLogin->SystemName));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"FrontID"), Int32::New(isolate,pRspUserLogin->FrontID));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"SessionID"), Int32::New(isolate,pRspUserLogin->SessionID));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"MaxOrderRef"), String::NewFromUtf8(isolate,pRspUserLogin->MaxOrderRef));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"SHFETime"), String::NewFromUtf8(isolate,pRspUserLogin->SHFETime));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"DCETime"), String::NewFromUtf8(isolate,pRspUserLogin->DCETime));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"CZCETime"), String::NewFromUtf8(isolate,pRspUserLogin->CZCETime));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"FFEXTime"), String::NewFromUtf8(isolate,pRspUserLogin->FFEXTime));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"INETime"), String::NewFromUtf8(isolate,pRspUserLogin->INETime));
+        Local <Object> jsonRtn = Object::New(isolate);
+        jsonRtn->Set(String::NewFromUtf8(isolate, "TradingDay"),
+                     String::NewFromUtf8(isolate, pRspUserLogin->TradingDay));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "LoginTime"),
+                     String::NewFromUtf8(isolate, pRspUserLogin->LoginTime));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "BrokerID"),
+                     String::NewFromUtf8(isolate, pRspUserLogin->BrokerID));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "UserID"),
+                     String::NewFromUtf8(isolate, pRspUserLogin->UserID));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "SystemName"),
+                     String::NewFromUtf8(isolate, pRspUserLogin->SystemName));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "FrontID"),
+                     Int32::New(isolate, pRspUserLogin->FrontID));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "SessionID"),
+                     Int32::New(isolate, pRspUserLogin->SessionID));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "MaxOrderRef"),
+                     String::NewFromUtf8(isolate, pRspUserLogin->MaxOrderRef));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "SHFETime"),
+                     String::NewFromUtf8(isolate, pRspUserLogin->SHFETime));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "DCETime"),
+                     String::NewFromUtf8(isolate, pRspUserLogin->DCETime));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "CZCETime"),
+                     String::NewFromUtf8(isolate, pRspUserLogin->CZCETime));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "FFEXTime"),
+                     String::NewFromUtf8(isolate, pRspUserLogin->FFEXTime));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "INETime"),
+                     String::NewFromUtf8(isolate, pRspUserLogin->INETime));
         *(cbArray + 2) = jsonRtn;
     }
     else {
-        *(cbArray + 2) = Local<Value>::New(isolate,Undefined(isolate));
+        *(cbArray + 2) = Local<Value>::New(isolate, Undefined(isolate));
     }
 
     *(cbArray + 3) = pkg_rspinfo(pRspInfo);
     return;
 }
 
-void WrapMdUser::pkg_cb_userlogout(CbRtnField* data, Local<Value>*cbArray) {
-    *cbArray = Int32::New(isolate,data->nRequestID);
-    *(cbArray + 1) = Boolean::New(isolate,data->bIsLast)->ToBoolean();
-    CThostFtdcRspUserLoginField* pRspUserLogin = static_cast<CThostFtdcRspUserLoginField*>(data->rtnField);
-    CThostFtdcRspInfoField *pRspInfo = static_cast<CThostFtdcRspInfoField*>(data->rspInfo);
+void WrapMdUser::pkg_cb_userlogout(CbRtnField *data, Local <Value> *cbArray) {
+    *cbArray = Int32::New(isolate, data->nRequestID);
+    *(cbArray + 1) = Boolean::New(isolate, data->bIsLast)->ToBoolean();
+    CThostFtdcRspUserLoginField *pRspUserLogin = static_cast<CThostFtdcRspUserLoginField *>(data->rtnField);
+    CThostFtdcRspInfoField *pRspInfo = static_cast<CThostFtdcRspInfoField *>(data->rspInfo);
     if (pRspUserLogin) {
-        Local<Object> jsonRtn = Object::New(isolate);
-        jsonRtn->Set(String::NewFromUtf8(isolate,"BrokerID"), String::NewFromUtf8(isolate,pRspUserLogin->BrokerID));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"UserID"), String::NewFromUtf8(isolate,pRspUserLogin->UserID));
+        Local <Object> jsonRtn = Object::New(isolate);
+        jsonRtn->Set(String::NewFromUtf8(isolate, "BrokerID"),
+                     String::NewFromUtf8(isolate, pRspUserLogin->BrokerID));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "UserID"),
+                     String::NewFromUtf8(isolate, pRspUserLogin->UserID));
         *(cbArray + 2) = jsonRtn;
     }
     else {
-        *(cbArray + 2) = Local<Value>::New(isolate,Undefined(isolate));
+        *(cbArray + 2) = Local<Value>::New(isolate, Undefined(isolate));
     }
     *(cbArray + 3) = pkg_rspinfo(pRspInfo);
     return;
 }
-void WrapMdUser::pkg_cb_rspsubmarketdata(CbRtnField* data, Local<Value>*cbArray) {
-    *cbArray = Int32::New(isolate,data->nRequestID);
-    *(cbArray + 1) = Boolean::New(isolate,data->bIsLast)->ToBoolean();
-    CThostFtdcSpecificInstrumentField *pSpecificInstrument = static_cast<CThostFtdcSpecificInstrumentField*>(data->rtnField);
-    CThostFtdcRspInfoField *pRspInfo = static_cast<CThostFtdcRspInfoField*>(data->rspInfo);
+
+void WrapMdUser::pkg_cb_rspsubmarketdata(CbRtnField *data, Local <Value> *cbArray) {
+    *cbArray = Int32::New(isolate, data->nRequestID);
+    *(cbArray + 1) = Boolean::New(isolate, data->bIsLast)->ToBoolean();
+    CThostFtdcSpecificInstrumentField *pSpecificInstrument = static_cast<CThostFtdcSpecificInstrumentField *>(data->rtnField);
+    CThostFtdcRspInfoField *pRspInfo = static_cast<CThostFtdcRspInfoField *>(data->rspInfo);
     if (pSpecificInstrument) {
-        Local<Object> jsonRtn = Object::New(isolate);
-        jsonRtn->Set(String::NewFromUtf8(isolate,"InstrumentID"), String::NewFromUtf8(isolate,pSpecificInstrument->InstrumentID));
+        Local <Object> jsonRtn = Object::New(isolate);
+        jsonRtn->Set(String::NewFromUtf8(isolate, "InstrumentID"),
+                     String::NewFromUtf8(isolate, pSpecificInstrument->InstrumentID));
         *(cbArray + 2) = jsonRtn;
     }
     else {
-        *(cbArray + 2) = Local<Value>::New(isolate,Undefined(isolate));
+        *(cbArray + 2) = Local<Value>::New(isolate, Undefined(isolate));
     }
     *(cbArray + 3) = pkg_rspinfo(pRspInfo);
     return;
 }
-void WrapMdUser::pkg_cb_unrspsubmarketdata(CbRtnField* data, Local<Value>*cbArray) {
-    *cbArray = Int32::New(isolate,data->nRequestID);
-    *(cbArray + 1) = Boolean::New(isolate,data->bIsLast)->ToBoolean();
-    CThostFtdcSpecificInstrumentField *pSpecificInstrument = static_cast<CThostFtdcSpecificInstrumentField*>(data->rtnField);
-    CThostFtdcRspInfoField *pRspInfo = static_cast<CThostFtdcRspInfoField*>(data->rspInfo);
+
+void WrapMdUser::pkg_cb_unrspsubmarketdata(CbRtnField *data, Local <Value> *cbArray) {
+    *cbArray = Int32::New(isolate, data->nRequestID);
+    *(cbArray + 1) = Boolean::New(isolate, data->bIsLast)->ToBoolean();
+    CThostFtdcSpecificInstrumentField *pSpecificInstrument = static_cast<CThostFtdcSpecificInstrumentField *>(data->rtnField);
+    CThostFtdcRspInfoField *pRspInfo = static_cast<CThostFtdcRspInfoField *>(data->rspInfo);
     if (pSpecificInstrument) {
-        Local<Object> jsonRtn = Object::New(isolate);
-        jsonRtn->Set(String::NewFromUtf8(isolate,"InstrumentID"), String::NewFromUtf8(isolate,pSpecificInstrument->InstrumentID));
+        Local <Object> jsonRtn = Object::New(isolate);
+        jsonRtn->Set(String::NewFromUtf8(isolate, "InstrumentID"),
+                     String::NewFromUtf8(isolate, pSpecificInstrument->InstrumentID));
         *(cbArray + 2) = jsonRtn;
     }
     else {
-        *(cbArray + 2) = Local<Value>::New(isolate,Undefined(isolate));
+        *(cbArray + 2) = Local<Value>::New(isolate, Undefined(isolate));
     }
     *(cbArray + 3) = pkg_rspinfo(pRspInfo);
     return;
 }
-void WrapMdUser::pkg_cb_rtndepthmarketdata(CbRtnField* data, Local<Value>*cbArray) {
-    CThostFtdcDepthMarketDataField *pDepthMarketData = static_cast<CThostFtdcDepthMarketDataField*>(data->rtnField);
-    if (pDepthMarketData) {               
-        Local<Object> jsonRtn = Object::New(isolate);
-        jsonRtn->Set(String::NewFromUtf8(isolate,"TradingDay"), String::NewFromUtf8(isolate,pDepthMarketData->TradingDay));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"InstrumentID"), String::NewFromUtf8(isolate,pDepthMarketData->InstrumentID));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"ExchangeID"), String::NewFromUtf8(isolate,pDepthMarketData->ExchangeID));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"ExchangeInstID"), String::NewFromUtf8(isolate,pDepthMarketData->ExchangeInstID));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"LastPrice"), Number::New(isolate,pDepthMarketData->LastPrice));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"PreSettlementPrice"), Number::New(isolate,pDepthMarketData->PreSettlementPrice));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"PreClosePrice"), Number::New(isolate,pDepthMarketData->PreClosePrice));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"PreOpenInterest"), Number::New(isolate,pDepthMarketData->PreOpenInterest));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"OpenPrice"), Number::New(isolate,pDepthMarketData->OpenPrice));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"HighestPrice"), Number::New(isolate,pDepthMarketData->HighestPrice));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"LowestPrice"), Number::New(isolate,pDepthMarketData->LowestPrice));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"Volume"), Int32::New(isolate,pDepthMarketData->Volume));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"Turnover"), Number::New(isolate,pDepthMarketData->Turnover));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"OpenInterest"), Number::New(isolate,pDepthMarketData->OpenInterest));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"ClosePrice"), Number::New(isolate,pDepthMarketData->ClosePrice));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"SettlementPrice"), Number::New(isolate,pDepthMarketData->SettlementPrice));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"UpperLimitPrice"), Number::New(isolate,pDepthMarketData->UpperLimitPrice));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"LowerLimitPrice"), Number::New(isolate,pDepthMarketData->LowerLimitPrice));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"PreDelta"), Number::New(isolate,pDepthMarketData->PreDelta));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"CurrDelta"), Number::New(isolate,pDepthMarketData->CurrDelta));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"UpdateTime"), String::NewFromUtf8(isolate,pDepthMarketData->UpdateTime));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"UpdateMillisec"), Int32::New(isolate,pDepthMarketData->UpdateMillisec));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"BidPrice1"), Number::New(isolate,pDepthMarketData->BidPrice1));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"BidVolume1"), Number::New(isolate,pDepthMarketData->BidVolume1));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"AskPrice1"), Number::New(isolate,pDepthMarketData->AskPrice1));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"AskVolume1"), Number::New(isolate,pDepthMarketData->AskVolume1));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"BidPrice2"), Number::New(isolate,pDepthMarketData->BidPrice2));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"BidVolume2"), Number::New(isolate,pDepthMarketData->BidVolume2));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"AskPrice2"), Number::New(isolate,pDepthMarketData->AskPrice2));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"AskVolume2"), Number::New(isolate,pDepthMarketData->AskVolume2));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"BidPrice3"), Number::New(isolate,pDepthMarketData->BidPrice3));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"BidVolume3"), Number::New(isolate,pDepthMarketData->BidVolume3));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"AskPrice3"), Number::New(isolate,pDepthMarketData->AskPrice3));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"AskVolume3"), Number::New(isolate,pDepthMarketData->AskVolume3));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"BidPrice4"), Number::New(isolate,pDepthMarketData->BidPrice4));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"BidVolume4"), Number::New(isolate,pDepthMarketData->BidVolume4));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"AskPrice4"), Number::New(isolate,pDepthMarketData->AskPrice4));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"AskVolume4"), Number::New(isolate,pDepthMarketData->AskVolume4));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"BidPrice5"), Number::New(isolate,pDepthMarketData->BidPrice5));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"BidVolume5"), Number::New(isolate,pDepthMarketData->BidVolume5));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"AskPrice5"), Number::New(isolate,pDepthMarketData->AskPrice5));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"AskVolume5"), Number::New(isolate,pDepthMarketData->AskVolume5));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"AveragePrice"), Number::New(isolate,pDepthMarketData->AveragePrice));
-        jsonRtn->Set(String::NewFromUtf8(isolate,"ActionDay"), String::NewFromUtf8(isolate,pDepthMarketData->ActionDay));           
+
+void WrapMdUser::pkg_cb_rtndepthmarketdata(CbRtnField *data, Local <Value> *cbArray) {
+    CThostFtdcDepthMarketDataField *pDepthMarketData = static_cast<CThostFtdcDepthMarketDataField *>(data->rtnField);
+    if (pDepthMarketData) {
+        Local <Object> jsonRtn = Object::New(isolate);
+        jsonRtn->Set(String::NewFromUtf8(isolate, "TradingDay"),
+                     String::NewFromUtf8(isolate, pDepthMarketData->TradingDay));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "InstrumentID"),
+                     String::NewFromUtf8(isolate, pDepthMarketData->InstrumentID));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "ExchangeID"),
+                     String::NewFromUtf8(isolate, pDepthMarketData->ExchangeID));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "ExchangeInstID"),
+                     String::NewFromUtf8(isolate, pDepthMarketData->ExchangeInstID));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "LastPrice"),
+                     Number::New(isolate, pDepthMarketData->LastPrice));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "PreSettlementPrice"),
+                     Number::New(isolate, pDepthMarketData->PreSettlementPrice));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "PreClosePrice"),
+                     Number::New(isolate, pDepthMarketData->PreClosePrice));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "PreOpenInterest"),
+                     Number::New(isolate, pDepthMarketData->PreOpenInterest));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "OpenPrice"),
+                     Number::New(isolate, pDepthMarketData->OpenPrice));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "HighestPrice"),
+                     Number::New(isolate, pDepthMarketData->HighestPrice));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "LowestPrice"),
+                     Number::New(isolate, pDepthMarketData->LowestPrice));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "Volume"),
+                     Int32::New(isolate, pDepthMarketData->Volume));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "Turnover"),
+                     Number::New(isolate, pDepthMarketData->Turnover));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "OpenInterest"),
+                     Number::New(isolate, pDepthMarketData->OpenInterest));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "ClosePrice"),
+                     Number::New(isolate, pDepthMarketData->ClosePrice));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "SettlementPrice"),
+                     Number::New(isolate, pDepthMarketData->SettlementPrice));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "UpperLimitPrice"),
+                     Number::New(isolate, pDepthMarketData->UpperLimitPrice));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "LowerLimitPrice"),
+                     Number::New(isolate, pDepthMarketData->LowerLimitPrice));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "PreDelta"),
+                     Number::New(isolate, pDepthMarketData->PreDelta));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "CurrDelta"),
+                     Number::New(isolate, pDepthMarketData->CurrDelta));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "UpdateTime"),
+                     String::NewFromUtf8(isolate, pDepthMarketData->UpdateTime));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "UpdateMillisec"),
+                     Int32::New(isolate, pDepthMarketData->UpdateMillisec));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "BidPrice1"),
+                     Number::New(isolate, pDepthMarketData->BidPrice1));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "BidVolume1"),
+                     Number::New(isolate, pDepthMarketData->BidVolume1));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "AskPrice1"),
+                     Number::New(isolate, pDepthMarketData->AskPrice1));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "AskVolume1"),
+                     Number::New(isolate, pDepthMarketData->AskVolume1));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "BidPrice2"),
+                     Number::New(isolate, pDepthMarketData->BidPrice2));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "BidVolume2"),
+                     Number::New(isolate, pDepthMarketData->BidVolume2));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "AskPrice2"),
+                     Number::New(isolate, pDepthMarketData->AskPrice2));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "AskVolume2"),
+                     Number::New(isolate, pDepthMarketData->AskVolume2));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "BidPrice3"),
+                     Number::New(isolate, pDepthMarketData->BidPrice3));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "BidVolume3"),
+                     Number::New(isolate, pDepthMarketData->BidVolume3));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "AskPrice3"),
+                     Number::New(isolate, pDepthMarketData->AskPrice3));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "AskVolume3"),
+                     Number::New(isolate, pDepthMarketData->AskVolume3));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "BidPrice4"),
+                     Number::New(isolate, pDepthMarketData->BidPrice4));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "BidVolume4"),
+                     Number::New(isolate, pDepthMarketData->BidVolume4));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "AskPrice4"),
+                     Number::New(isolate, pDepthMarketData->AskPrice4));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "AskVolume4"),
+                     Number::New(isolate, pDepthMarketData->AskVolume4));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "BidPrice5"),
+                     Number::New(isolate, pDepthMarketData->BidPrice5));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "BidVolume5"),
+                     Number::New(isolate, pDepthMarketData->BidVolume5));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "AskPrice5"),
+                     Number::New(isolate, pDepthMarketData->AskPrice5));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "AskVolume5"),
+                     Number::New(isolate, pDepthMarketData->AskVolume5));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "AveragePrice"),
+                     Number::New(isolate, pDepthMarketData->AveragePrice));
+        jsonRtn->Set(String::NewFromUtf8(isolate, "ActionDay"),
+                     String::NewFromUtf8(isolate, pDepthMarketData->ActionDay));
         *cbArray = jsonRtn;
     }
     else {
-        *cbArray = Local<Value>::New(isolate,Undefined(isolate));
+        *cbArray = Local<Value>::New(isolate, Undefined(isolate));
     }
-    
+
     return;
-}  
-void WrapMdUser::pkg_cb_rsperror(CbRtnField* data, Local<Value>*cbArray) {
-    *cbArray = Int32::New(isolate,data->nRequestID);
-    *(cbArray + 1) = Boolean::New(isolate,data->bIsLast)->ToBoolean();
-    CThostFtdcRspInfoField *pRspInfo = static_cast<CThostFtdcRspInfoField*>(data->rspInfo);
+}
+
+void WrapMdUser::pkg_cb_rsperror(CbRtnField *data, Local <Value> *cbArray) {
+    *cbArray = Int32::New(isolate, data->nRequestID);
+    *(cbArray + 1) = Boolean::New(isolate, data->bIsLast)->ToBoolean();
+    CThostFtdcRspInfoField *pRspInfo = static_cast<CThostFtdcRspInfoField *>(data->rspInfo);
     *(cbArray + 2) = pkg_rspinfo(pRspInfo);
     return;
 }
 
-Local<Value> WrapMdUser::pkg_rspinfo(CThostFtdcRspInfoField *pRspInfo) {
+Local <Value> WrapMdUser::pkg_rspinfo(CThostFtdcRspInfoField * pRspInfo) {
     if (pRspInfo) {
-        Local<Object> jsonInfo = Object::New(isolate);
-        jsonInfo->Set(String::NewFromUtf8(isolate,"ErrorID"), Int32::New(isolate,pRspInfo->ErrorID));
-        jsonInfo->Set(String::NewFromUtf8(isolate,"ErrorMsg"), String::NewFromUtf8(isolate,pRspInfo->ErrorMsg));
+        Local <Object> jsonInfo = Object::New(isolate);
+        jsonInfo->Set(String::NewFromUtf8(isolate, "ErrorID"),
+                      Int32::New(isolate, pRspInfo->ErrorID));
+        jsonInfo->Set(String::NewFromUtf8(isolate, "ErrorMsg"),
+                      String::NewFromUtf8(isolate, pRspInfo->ErrorMsg));
         return jsonInfo;
     }
     else {
-        return Local<Value>::New(isolate,Undefined(isolate));
+        return Local<Value>::New(isolate, Undefined(isolate));
     }
 }
