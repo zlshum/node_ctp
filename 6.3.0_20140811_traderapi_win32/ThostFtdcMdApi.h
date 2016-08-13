@@ -16,7 +16,8 @@
 
 #include "ThostFtdcUserApiStruct.h"
 
-#if defined(ISLIB) && defined(WIN32)
+//zhangls modify win64
+/*#if defined(ISLIB) && defined(WIN32)
 #ifdef LIB_MD_API_EXPORT
 #define MD_API_EXPORT __declspec(dllexport)
 #else
@@ -25,6 +26,9 @@
 #else
 #define MD_API_EXPORT 
 #endif
+*/
+
+#define MD_API_EXPORT
 
 class CThostFtdcMdSpi
 {
@@ -82,6 +86,10 @@ public:
 	///@return 创建出的UserApi
 	///modify for udp marketdata
 	static CThostFtdcMdApi *CreateFtdcMdApi(const char *pszFlowPath = "", const bool bIsUsingUdp=false, const bool bIsMulticast=false);
+	
+	///获取API的版本信息
+	///@retrun 获取到的版本号
+	static const char *GetApiVersion();
 	
 	///删除接口对象本身
 	///@remark 不再使用本接口对象时,调用该函数删除接口对象

@@ -1,6 +1,6 @@
 #include <uv.h>
 #include "uv_mduser.h"
-#include "ThostFtdcMdApi.h"
+//#include "ThostFtdcMdApi.h"
 #include "ThostFtdcUserApiDataType.h"
 
 std::map<int, CbWrap*> uv_mduser::cb_map;
@@ -171,7 +171,10 @@ void uv_mduser::_async(uv_work_t * work) {
 	case T_CONNECT_RE:
 	{
 						 UVConnectField* _pConnectF = static_cast<UVConnectField*>(baton->args);
+						 //zhangls 
 						 uv_mduser_obj->m_pApi = CThostFtdcMdApi::CreateFtdcMdApi(_pConnectF->szPath);
+						 //uv_mduser_obj->m_pApi = NULL;
+						 //end
 						 uv_mduser_obj->m_pApi->RegisterSpi(uv_mduser_obj);			// ×¢²áÊÂ¼þÀà
 						 uv_mduser_obj->m_pApi->RegisterFront(_pConnectF->front_addr);
 						 uv_mduser_obj->m_pApi->Init();

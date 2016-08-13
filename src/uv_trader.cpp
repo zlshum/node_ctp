@@ -3,6 +3,8 @@
 #include "ThostFtdcTraderApi.h"
 #include "ThostFtdcUserApiDataType.h"
 
+#include "test.h"
+
 std::map<int, CbWrap*> uv_trader::cb_map;
 
 void logger_cout(const char* content) {
@@ -329,7 +331,10 @@ void uv_trader::_async(uv_work_t * work) {
 	case T_CONNECT_RE:
 	{
 						 UVConnectField* _pConnectF = static_cast<UVConnectField*>(baton->args);
+						 //zhangls add
 						 uv_trader_obj->m_pApi = CThostFtdcTraderApi::CreateFtdcTraderApi(_pConnectF->szPath);
+						 //uv_trader_obj->m_pApi = NULL;
+						 //end
 						 uv_trader_obj->m_pApi->RegisterSpi(uv_trader_obj);			
 						 uv_trader_obj->m_pApi->SubscribePublicTopic(static_cast<THOST_TE_RESUME_TYPE>(_pConnectF->public_topic_type));
 						 uv_trader_obj->m_pApi->SubscribePrivateTopic(static_cast<THOST_TE_RESUME_TYPE>(_pConnectF->private_topic_type));
