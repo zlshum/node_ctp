@@ -3,8 +3,6 @@
 #include "ThostFtdcTraderApi.h"
 #include "ThostFtdcUserApiDataType.h"
 
-#include "test.h"
-
 std::map<int, CbWrap*> uv_trader::cb_map;
 
 void logger_cout(const char* content) {
