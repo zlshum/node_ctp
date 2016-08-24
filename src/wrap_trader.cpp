@@ -43,16 +43,16 @@ void WrapTrader::Init(Isolate *iso, int args) {
     isolate = iso;
 
     // Prepare constructor template
-    Local <FunctionTemplate> tpl = FunctionTemplate::New(isolate, New);
+    Local<FunctionTemplate> tpl = FunctionTemplate::New(isolate, New);
     tpl->SetClassName(String::NewFromUtf8(isolate, "WrapTrader"));
     tpl->InstanceTemplate()->SetInternalFieldCount(1);
     // Prototype
     tpl->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "on"),
                                   FunctionTemplate::New(isolate, On)->GetFunction());
-
+ 
     tpl->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "connect"),
                                   FunctionTemplate::New(isolate, Connect)->GetFunction());
-
+    
     tpl->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "reqUserLogin"),
                                   FunctionTemplate::New(isolate, ReqUserLogin)->GetFunction());
 
@@ -103,6 +103,7 @@ void WrapTrader::Init(Isolate *iso, int args) {
                                   FunctionTemplate::New(isolate, GetTradingDay)->GetFunction());
 
     constructor.Reset(isolate, tpl->GetFunction());
+    
 }
 
 void WrapTrader::initEventMap() {
